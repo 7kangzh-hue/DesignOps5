@@ -41,13 +41,13 @@ export const ManagerNotes: React.FC = () => {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const [fetchedNotes, fetchedProjects, fetchedConfig] = await Promise.all([
+      const [fetchedNotes, projectResult, fetchedConfig] = await Promise.all([
         storage.getManagerNotes(),
-        storage.getProjects(),
+        storage.getProjects(1, 1000),
         storage.getConfig()
       ]);
       setNotes(fetchedNotes);
-      setProjects(fetchedProjects);
+      setProjects(projectResult.items);
       setConfig(fetchedConfig);
     } catch (e) {
       console.error(e);

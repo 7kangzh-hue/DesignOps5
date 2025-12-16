@@ -113,9 +113,13 @@ export const MemberWeeklyLog: React.FC<{ userRole: UserRole, currentUser: string
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const [fetchedConfig, fetchedProjects, fetchedLogs] = await Promise.all([ storage.getConfig(), storage.getProjects(), storage.getLogs() ]);
+      const [fetchedConfig, projectResult, fetchedLogs] = await Promise.all([ 
+        storage.getConfig(), 
+        storage.getProjects(1, 1000), 
+        storage.getLogs() 
+      ]);
       setConfig(fetchedConfig);
-      setProjects(fetchedProjects);
+      setProjects(projectResult.items);
       setLogs(fetchedLogs);
     } catch (e) { console.error(e); } finally { setIsLoading(false); }
   };

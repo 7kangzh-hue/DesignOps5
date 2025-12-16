@@ -65,13 +65,14 @@ export const Reports: React.FC = () => {
   const fetchData = useCallback(async (isManual = false) => {
     if (isManual) setIsRefreshing(true);
     try {
-      const [fetchedLogs, fetchedProjects, fetchedConfig] = await Promise.all([ 
+      // For reports, we fetch a large batch of projects to ensure lookups work.
+      const [fetchedLogs, projectResult, fetchedConfig] = await Promise.all([ 
         storage.getLogs(), 
-        storage.getProjects(),
+        storage.getProjects(1, 1000),
         storage.getConfig() 
       ]);
       setAllLogs(fetchedLogs);
-      setProjects(fetchedProjects);
+      setProjects(projectResult.items);
       setConfig(fetchedConfig);
       setLastSync(new Date());
     } catch (e) { 
@@ -351,22 +352,38 @@ export const Reports: React.FC = () => {
                   <ResizableTh width={statsWidths.total} onResize={(w) => setStatsWidths({...statsWidths, total: w})} className="text-right bg-indigo-50/50 text-indigo-700">部门合计</ResizableTh> 
                 </tr> 
               </thead>
-              <tbody className="divide-y divide-slate-100">
-                {Object.keys(deptStatsReport).length > 0 ? (Object.entries(deptStatsReport) as [string, DepartmentStats][]).map(([deptKey, deptData]) => {
+              <tbody className="divide-y divide-slate-100 bg-white">
+                {Object.keys(deptStatsReport).length > 0 ? (Object.entries(deptStatsReport) as [string, DepartmentStats][]).map(([deptKey, deptData], deptIndex) => {
                   const typeEntries = Object.entries(deptData.types) as [string, TypeStats][];
                   const deptRowSpan = typeEntries.reduce((acc, [_, typeData]) => acc + Object.keys(typeData.projects).length, 0);
                   const deptLabel = translateLabel(config, 'departments', deptKey);
+                  const isEvenDept = deptIndex % 2 === 0;
+                  const rowBgClass = isEvenDept ? 'bg-white' : 'bg-slate-50/50';
+                  
                   return typeEntries.map(([typeKey, typeData], typeIndex) => {
                     const projectEntries = Object.entries(typeData.projects) as [string, ProjectStats][];
                     const typeLabel = translateLabel(config, 'types', typeKey);
+                    
                     return projectEntries.map(([projId, projData], projIndex) => (
-                      <tr key={`${deptKey}-${typeKey}-${projId}`} className="hover:bg-indigo-50/30 even:bg-slate-50 transition-colors animate-in fade-in slide-in-from-bottom-1 duration-300">
-                        {typeIndex === 0 && projIndex === 0 && ( <td rowSpan={deptRowSpan} className="px-6 py-4 font-black text-slate-900 align-top border-r border-slate-100 bg-white leading-[3rem]"> {deptLabel} </td> )}
-                        {projIndex === 0 && ( <td rowSpan={projectEntries.length} className="px-6 py-4 align-top border-r border-slate-100 bg-white font-bold text-slate-500 leading-[3rem]"> {typeLabel} </td> )}
-                        <td className="px-6 py-4 text-slate-700 font-bold truncate h-14 leading-relaxed">{projData.name}</td>
-                        <td className="px-6 py-4 text-slate-500 text-[10px] font-bold truncate h-14 leading-relaxed"> {Array.from(projData.people).join(', ')} </td>
-                        <td className="px-6 py-4 text-right font-black text-slate-900 h-14 leading-relaxed">{projData.hours}</td>
-                        {typeIndex === 0 && projIndex === 0 && ( <td rowSpan={deptRowSpan} className="px-6 py-4 font-black align-top text-right bg-indigo-50/30 text-indigo-700 border-l border-indigo-100/50 shadow-[-5px_0_15px_-10px_rgba(0,0,0,0.1)] leading-[3rem]"> <div className="mt-2 text-xl">{deptData.totalHours}</div> </td> )}
+                      <tr key={`${deptKey}-${typeKey}-${projId}`} className={`${rowBgClass} hover:bg-indigo-50/30 transition-colors animate-in fade-in slide-in-from-bottom-1 duration-300 group`}>
+                        {typeIndex === 0 && projIndex === 0 && ( 
+                          <td rowSpan={deptRowSpan} className={`px-6 py-6 font-black text-slate-900 align-top border-r border-slate-100 ${rowBgClass} sticky left-0 z-10`}> 
+                            <div className="sticky top-24">{deptLabel}</div>
+                          </td> 
+                        )}
+                        {projIndex === 0 && ( 
+                          <td rowSpan={projectEntries.length} className={`px-6 py-6 align-top border-r border-slate-100 ${rowBgClass} font-bold text-slate-500`}> 
+                            <div className="sticky top-24">{typeLabel}</div>
+                          </td> 
+                        )}
+                        <td className="px-6 py-4 text-slate-700 font-bold truncate align-middle">{projData.name}</td>
+                        <td className="px-6 py-4 text-slate-500 text-[10px] font-bold truncate align-middle"> {Array.from(projData.people).join(', ')} </td>
+                        <td className="px-6 py-4 text-right font-black text-slate-900 align-middle">{projData.hours}</td>
+                        {typeIndex === 0 && projIndex === 0 && ( 
+                          <td rowSpan={deptRowSpan} className={`px-6 py-6 font-black align-top text-right ${isEvenDept ? 'bg-indigo-50/20' : 'bg-indigo-50/40'} text-indigo-700 border-l border-indigo-100/50 shadow-[-5px_0_15px_-10px_rgba(0,0,0,0.1)]`}> 
+                            <div className="sticky top-24 text-xl">{deptData.totalHours}</div> 
+                          </td> 
+                        )}
                       </tr>
                     ));
                   });

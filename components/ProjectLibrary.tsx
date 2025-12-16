@@ -127,7 +127,6 @@ const Cascader = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // 当菜单打开且已有选中值时，默认展开对应的大类
   useEffect(() => {
     if (isOpen && value) {
       const current = options.find(o => o.key === value || o.label === value);
@@ -212,6 +211,7 @@ interface ProjectLibraryProps {
 
 export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ userRole, currentUser, currentUserId }) => {
   const [projects, setProjects] = useState<Project[]>([]);
+  const [totalItems, setTotalItems] = useState(0);
   const [config, setConfig] = useState<AppConfig>(DEFAULT_CONFIG);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -234,14 +234,16 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ userRole, curren
   const [formData, setFormData] = useState<Partial<Project>>(initialFormState);
   const [isEditing, setIsEditing] = useState(false);
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { fetchData(); }, [currentPage, itemsPerPage]);
 
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const [fetchedConfig, fetchedProjects] = await Promise.all([ storage.getConfig(), storage.getProjects() ]);
+      const fetchedConfig = await storage.getConfig();
+      const result = await storage.getProjects(currentPage, itemsPerPage);
       setConfig(fetchedConfig);
-      setProjects(fetchedProjects);
+      setProjects(result.items);
+      setTotalItems(result.totalItems);
       
       const initialWidths: Record<string, number> = {};
       fetchedConfig.projectColumnOrder.forEach(key => {
@@ -294,7 +296,10 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ userRole, curren
     }
   };
 
-  const filteredProjects = useMemo(() => {
+  // Note: Backend filtering is not fully implemented in getProjects signature as requested, 
+  // so we still filter current page items for frontend experience. 
+  // For true server filtering, storage.getProjects would need an options parameter.
+  const displayData = useMemo(() => {
     return projects.filter(p => {
       const matchSearch = (p.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || (p.details || '').toLowerCase().includes(searchTerm.toLowerCase());
       const matchMonth = filters.month ? (p.startTime || '').startsWith(filters.month) : true;
@@ -307,15 +312,15 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ userRole, curren
     });
   }, [projects, searchTerm, filters]);
 
-  const currentData = useMemo(() => filteredProjects.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage), [filteredProjects, currentPage, itemsPerPage]);
-
-  const handleExport = () => {
+  const handleExport = async () => {
+    // For export, we typically want the full list, but here we'll export current result or a larger batch
+    const allResult = await storage.getProjects(1, 1000); 
     const headers: Record<string, string> = {};
     config.projectColumnOrder.forEach(key => {
       headers[key] = PROJECT_FIELD_LABELS[key] || key;
     });
     
-    const exportData = filteredProjects.map(p => {
+    const exportData = allResult.items.map(p => {
       const row: any = {};
       config.projectColumnOrder.forEach(key => {
         switch (key) {
@@ -373,6 +378,8 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ userRole, curren
     }
   };
 
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+
   if (isLoading) return <div className="p-10 flex justify-center"><Loader2 className="animate-spin text-indigo-400" /></div>;
 
   return (
@@ -380,7 +387,7 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ userRole, curren
       <div className="flex justify-between items-center mb-10">
         <div>
           <h2 className="text-3xl font-black text-slate-900 flex items-center gap-3 tracking-tight"> <FolderKanban className="text-indigo-600" size={32} /> 项目库 </h2>
-          <p className="text-slate-500 text-sm mt-2 font-medium">全量设计需求资产管理中心</p>
+          <p className="text-slate-500 text-sm mt-2 font-medium">全量设计需求资产管理中心 (共 {totalItems} 条数据)</p>
         </div>
         <div className="flex items-center gap-3">
           <button onClick={handleExport} className="h-12 px-6 rounded-2xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 flex items-center gap-2 transition-all font-black text-sm uppercase"> <Download size={20} /> 导出 </button>
@@ -423,7 +430,7 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ userRole, curren
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {currentData.length > 0 ? currentData.map(project => (
+              {displayData.length > 0 ? displayData.map(project => (
                     <tr key={project.id} className="hover:bg-indigo-50/30 even:bg-slate-50 transition-colors group">
                       {config.projectColumnOrder.map(key => ( <td key={key} className="px-6 py-4 truncate text-slate-600 font-bold"> {renderCell(key, project)} </td> ))}
                       <td className="px-6 py-4 text-center sticky right-0 bg-white group-even:bg-slate-50 group-hover:bg-indigo-50 shadow-[-12px_0_15px_-10px_rgba(0,0,0,0.1)] z-20">
@@ -435,6 +442,41 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ userRole, curren
               )) : ( <tr> <td colSpan={100} className="text-center py-32 text-slate-400 font-black uppercase tracking-widest text-xs"> 暂无记录 </td> </tr> )}
             </tbody>
           </table>
+        </div>
+        
+        {/* Pagination Footer */}
+        <div className="h-16 border-t border-slate-100 bg-slate-50 flex items-center justify-between px-8 shrink-0">
+          <div className="flex items-center gap-4 text-xs font-bold text-slate-500 uppercase tracking-widest">
+            <span>显示 {displayData.length} 条 / 共 {totalItems} 条</span>
+            <div className="h-4 w-px bg-slate-200 mx-2"></div>
+            <span>第 {currentPage} / {totalPages || 1} 页</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <select 
+              className="h-9 bg-white border border-slate-200 rounded-lg px-2 text-[10px] font-black uppercase outline-none mr-2"
+              value={itemsPerPage}
+              onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+            >
+              <option value={10}>10条/页</option>
+              <option value={20}>20条/页</option>
+              <option value={50}>50条/页</option>
+              <option value={100}>100条/页</option>
+            </select>
+            <button 
+              disabled={currentPage <= 1}
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              className="h-9 w-9 flex items-center justify-center bg-white border border-slate-200 rounded-lg text-slate-400 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <button 
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              className="h-9 w-9 flex items-center justify-center bg-white border border-slate-200 rounded-lg text-slate-400 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+            >
+              <ChevronRight size={18} />
+            </button>
+          </div>
         </div>
       </div>
 

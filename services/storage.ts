@@ -150,10 +150,24 @@ export const storage = {
     }
   },
   
-  async getProjects(): Promise<Project[]> {
-    if (_isMockMode) return (JSON.parse(safeGetItem(MOCK_KEYS.PROJECTS) || '[]')).map(normalizeProject);
-    const records = await pb.collection('projects').getFullList({ sort: '-created', requestKey: null });
-    return records.map(r => normalizeProject({ ...r, id: r.id }));
+  async getProjects(page: number = 1, perPage: number = 50): Promise<{ items: Project[], totalItems: number }> {
+    if (_isMockMode) {
+      const all = (JSON.parse(safeGetItem(MOCK_KEYS.PROJECTS) || '[]')).map(normalizeProject);
+      const start = (page - 1) * perPage;
+      const slicedItems = all.slice(start, start + perPage);
+      return {
+        items: slicedItems,
+        totalItems: all.length
+      };
+    }
+    const result = await pb.collection('projects').getList(page, perPage, { 
+      sort: '-created', 
+      requestKey: null 
+    });
+    return {
+      items: result.items.map(r => normalizeProject({ ...r, id: r.id })),
+      totalItems: result.totalItems
+    };
   },
 
   async saveProject(project: Partial<Project>) {

@@ -1,0 +1,36 @@
+name: Deploy to Tencent Cloud
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code 🛎️
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js ⚙️
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Install and Build 🔧
+      env: 
+        # 👇 这一步就是我们要在 deploy.yml 里加的关键配置
+        VITE_API_KEY: ${{ secrets.VITE_API_KEY }}
+      run: |
+        npm install
+        npm run build
+
+    - name: Deploy to Server 🚀
+      uses: easingthemes/ssh-deploy@main
+      env:
+        SSH_PRIVATE_KEY: ${{ secrets.SERVER_SSH_KEY }}
+        ARGS: "-rltgoDzvO --delete"
+        SOURCE: "dist/"
+        REMOTE_HOST: ${{ secrets.REMOTE_HOST }}
+        REMOTE_USER: "ubuntu"
+        TARGET: "/home/ubuntu/pb/pb_public/"

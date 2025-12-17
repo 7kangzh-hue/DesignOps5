@@ -4,6 +4,7 @@ import { WorkLog, ManagerNote } from "../types";
 
 // Always use const ai = new GoogleGenAI({apiKey: process.env.API_KEY});
 // We assume process.env.API_KEY is provided via the shim in index.html or build environment
+// 👇 改成这样：使用 import.meta.env 读取 VITE_API_KEY
 const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY || "" });
 
 // Helper to format date

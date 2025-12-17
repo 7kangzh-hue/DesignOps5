@@ -1,0 +1,37 @@
+name: Deploy to Tencent Cloud
+
+on:
+  push:
+    branches: [ main ]  # 如果你的分支叫 master，请把这里改成 master
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    # 1. 拉取最新代码
+    - name: Checkout Code 🛎️
+      uses: actions/checkout@v4
+
+    # 2. 准备 Node.js 环境
+    - name: Setup Node.js ⚙️
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    # 3. 安装依赖并打包网站
+    - name: Install and Build 🔧
+      run: |
+        npm install
+        npm run build
+
+    # 4. 把打包好的文件推送到腾讯云
+    - name: Deploy to Server 🚀
+      uses: easingthemes/ssh-deploy@main
+      env:
+        SSH_PRIVATE_KEY: ${{ secrets.SERVER_SSH_KEY }}
+        ARGS: "-rltgoDzvO --delete"
+        SOURCE: "dist/"
+        REMOTE_HOST: ${{ secrets.REMOTE_HOST }}
+        REMOTE_USER: "ubuntu"    # ⚠️ 已经帮你改好了
+        TARGET: "/home/ubuntu/pb/pb_public/" # ⚠️ 已经帮你改好了

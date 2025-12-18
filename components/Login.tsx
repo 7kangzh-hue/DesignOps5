@@ -61,8 +61,12 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
       console.error("Login attempt failed:", err);
       if (err.status === 0 || err.message?.includes('Failed to fetch')) {
         setError(`无法连接到服务器 (${serverUrl})。请点击右上角设置图标检查服务器地址是否正确，或确保后端已启动。`);
+      } else if (err.status === 400 || err.status === 403) {
+        setError('账号或密码错误，或该用户已被禁用。');
+      } else if (err.message) {
+        setError(`登录失败: ${err.message}`);
       } else {
-        setError('账号或密码错误。请确保已在 PocketBase 后台创建用户记录（非后台管理员）。');
+        setError('系统发生未知错误，请稍后再试。');
       }
     } finally {
       setIsLoading(false);
@@ -188,7 +192,6 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 {isLoading ? '正在登录...' : '立即登录'}
               </button>
 
-              {/* Fix: Use process.env.NODE_ENV instead of import.meta.env to avoid TypeScript errors in environments that don't support it */}
               {process.env.NODE_ENV === 'development' && (
                 <>
                   <div className="relative">
@@ -235,7 +238,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
       {showServerModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 animate-in fade-in zoom-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl max-sm w-full p-6 animate-in fade-in zoom-in duration-200">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
                 <Settings size={20} className="text-blue-600"/> 服务器配置

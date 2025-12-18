@@ -197,6 +197,22 @@ export const MemberWeeklyLog: React.FC<{ userRole: UserRole, currentUser: string
     exportToCSV(exportData, headers, `工时台账_${selectedViewWeek}`);
   };
 
+  const confirmDelete = async () => {
+    if (deleteLogConfirmId) {
+      setIsDeleting(true);
+      try {
+        await storage.deleteLog(deleteLogConfirmId);
+        const updatedLogs = await storage.getLogs();
+        setLogs(updatedLogs);
+        setDeleteLogConfirmId(null);
+      } catch (e) {
+        alert("删除失败");
+      } finally {
+        setIsDeleting(false);
+      }
+    }
+  };
+
   if (isLoading) return <div className="p-10 flex justify-center"><Loader2 className="animate-spin text-indigo-400" /></div>;
 
   return (
@@ -316,4 +332,27 @@ export const MemberWeeklyLog: React.FC<{ userRole: UserRole, currentUser: string
                     <div className="col-span-2 flex items-start gap-2"> <input type="number" step="0.5" className="w-full h-11 border border-slate-200 bg-slate-50 rounded-xl px-4 text-sm font-black text-indigo-600 text-center outline-none" value={row.hours} onChange={(e) => setFormRows(formRows.map(r => r.tempId === row.tempId ? {...r, hours: e.target.value} : r))} /> {!isEditing && <button onClick={() => setFormRows(formRows.filter(r => r.tempId !== row.tempId))} className="p-2 text-slate-300 hover:text-rose-500 transition-colors"> <Trash2 size={16}/> </button>} </div>
                   </div>
                 ))}
-                {!isEditing && ( <button onClick={() => setFormRows([...formRows, {
+                {!isEditing && ( <button onClick={() => setFormRows([...formRows, { tempId: Date.now().toString(), projectId: '', content: '', hours: 0 }])} className="w-full py-4 border-2 border-dashed border-slate-200 rounded-2xl text-slate-400 font-black text-xs uppercase tracking-widest hover:bg-slate-50 hover:border-slate-300 transition-all flex items-center justify-center gap-2"> <Plus size={16}/> 添加一行 </button> )}
+              </div>
+            </div>
+            <div className="px-10 py-6 bg-slate-50 border-t border-slate-50 flex justify-end gap-4 rounded-b-[32px] shrink-0"> <button onClick={() => setIsModalOpen(false)} className="px-8 py-2.5 text-slate-500 font-black uppercase tracking-widest"> 取消 </button> <button onClick={handleSubmit} disabled={isSaving} className="px-10 py-2.5 bg-indigo-600 text-white rounded-xl shadow-xl text-sm font-black uppercase flex items-center gap-2"> {isSaving && <Loader2 className="animate-spin" size={18} />} {isEditing ? '更新记录' : '提交保存'} </button> </div>
+          </div>
+        </div>
+      )}
+
+      {deleteLogConfirmId && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[2000] flex items-center justify-center p-6 text-center">
+          <div className="bg-white rounded-[32px] shadow-2xl max-w-sm w-full p-10 animate-in fade-in zoom-in border border-white/20">
+            <div className="mx-auto bg-rose-50 w-20 h-20 rounded-full flex items-center justify-center text-rose-500 mb-6"> <AlertTriangle size={36} /> </div>
+            <h3 className="text-xl font-black text-slate-900 mb-3 tracking-tight">确认删除记录？</h3>
+            <p className="text-slate-500 mb-10 text-sm font-medium leading-relaxed">删除后该工时将不再计入报表统计，操作不可撤销。</p>
+            <div className="flex flex-col gap-3">
+              <button onClick={confirmDelete} disabled={isDeleting} className="w-full py-4 bg-rose-600 text-white rounded-2xl shadow-xl font-black text-sm uppercase"> {isDeleting ? '正在删除...' : '确认删除'} </button>
+              <button onClick={() => setDeleteLogConfirmId(null)} className="w-full py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-sm uppercase"> 取消 </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};

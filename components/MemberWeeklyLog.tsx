@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { storage } from '../services/storage';
 import { Project, WorkLog, AppConfig, UserRole, DEFAULT_CONFIG, TagConfig, DictItem } from '../types';
@@ -317,29 +316,4 @@ export const MemberWeeklyLog: React.FC<{ userRole: UserRole, currentUser: string
                     <div className="col-span-2 flex items-start gap-2"> <input type="number" step="0.5" className="w-full h-11 border border-slate-200 bg-slate-50 rounded-xl px-4 text-sm font-black text-indigo-600 text-center outline-none" value={row.hours} onChange={(e) => setFormRows(formRows.map(r => r.tempId === row.tempId ? {...r, hours: e.target.value} : r))} /> {!isEditing && <button onClick={() => setFormRows(formRows.filter(r => r.tempId !== row.tempId))} className="p-2 text-slate-300 hover:text-rose-500 transition-colors"> <Trash2 size={16}/> </button>} </div>
                   </div>
                 ))}
-                {!isEditing && ( <button onClick={() => setFormRows([...formRows, { tempId: Date.now().toString(), projectId: '', content: '', hours: 0 }])} className="w-full py-4 border-2 border-dashed border-slate-200 rounded-2xl text-slate-400 font-black uppercase tracking-widest hover:bg-indigo-50 hover:text-indigo-600 transition-all flex items-center justify-center gap-2"> <Plus size={18} /> 添加记录 </button> )}
-              </div>
-            </div>
-            <div className="px-10 py-6 border-t border-slate-50 bg-white flex justify-end gap-4 rounded-b-[32px] shrink-0">
-              <button onClick={() => setIsModalOpen(false)} className="px-8 py-2.5 text-slate-500 font-black uppercase text-xs"> 取消 </button>
-              <button onClick={handleSubmit} disabled={isSaving} className="px-10 py-2.5 bg-indigo-600 text-white rounded-xl shadow-xl text-xs font-black uppercase flex items-center gap-2 transition-all active:scale-95"> {isSaving && <Loader2 className="animate-spin" size={16} />} <Save size={16}/> 保存记录 </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {deleteLogConfirmId && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[2000] flex items-center justify-center p-6 text-center">
-          <div className="bg-white rounded-[32px] shadow-2xl max-sm w-full p-10 border border-white/20 animate-in fade-in zoom-in">
-            <div className="mx-auto bg-rose-50 w-20 h-20 rounded-full flex items-center justify-center text-rose-500 mb-6"> <AlertTriangle size={36} /> </div>
-            <h3 className="text-xl font-black text-slate-900 mb-3 tracking-tight">确认删除记录？</h3>
-            <div className="flex flex-col gap-3 mt-10">
-              <button onClick={async () => { setIsDeleting(true); try { await storage.deleteLog(deleteLogConfirmId); fetchData(); setDeleteLogConfirmId(null); } finally { setIsDeleting(false); } }} disabled={isDeleting} className="w-full py-4 bg-rose-600 text-white rounded-2xl font-black text-sm uppercase shadow-xl shadow-rose-100 transition-all active:scale-95"> {isDeleting ? '正在删除...' : '确认删除'} </button>
-              <button onClick={() => setDeleteLogConfirmId(null)} className="w-full py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-sm uppercase transition-all active:scale-95"> 取消 </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
+                {!isEditing && ( <button onClick={() => setFormRows([...formRows, {

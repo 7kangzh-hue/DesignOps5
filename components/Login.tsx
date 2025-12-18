@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { pb, storage } from '../services/storage';
 import { User, UserRole } from '../types';
@@ -189,33 +188,38 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 {isLoading ? '正在登录...' : '立即登录'}
               </button>
 
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-200"></div>
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-white text-gray-400 text-[10px] uppercase font-bold tracking-widest">进入演示模式</span>
-                </div>
-              </div>
+              {/* Fix: Use process.env.NODE_ENV instead of import.meta.env to avoid TypeScript errors in environments that don't support it */}
+              {process.env.NODE_ENV === 'development' && (
+                <>
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-gray-200"></div>
+                    </div>
+                    <div className="relative flex justify-center text-sm">
+                      <span className="px-2 bg-white text-gray-400 text-[10px] uppercase font-bold tracking-widest">进入演示模式</span>
+                    </div>
+                  </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <button 
-                  type="button" 
-                  onClick={() => enterMockMode('manager')} 
-                  className="flex flex-col items-center justify-center py-3 px-4 border border-dashed border-slate-300 rounded-xl hover:bg-blue-50 hover:border-blue-300 transition-all group"
-                >
-                  <ShieldCheck size={18} className="text-slate-400 group-hover:text-blue-500 mb-1"/>
-                  <span className="text-xs font-bold text-slate-600 group-hover:text-blue-700">经理预览</span>
-                </button>
-                <button 
-                  type="button" 
-                  onClick={() => enterMockMode('member')} 
-                  className="flex flex-col items-center justify-center py-3 px-4 border border-dashed border-slate-300 rounded-xl hover:bg-slate-50 hover:border-slate-400 transition-all group"
-                >
-                  <UserCheck size={18} className="text-slate-400 group-hover:text-slate-600 mb-1"/>
-                  <span className="text-xs font-bold text-slate-600 group-hover:text-slate-900">成员预览</span>
-                </button>
-              </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button 
+                      type="button" 
+                      onClick={() => enterMockMode('manager')} 
+                      className="flex flex-col items-center justify-center py-3 px-4 border border-dashed border-slate-300 rounded-xl hover:bg-blue-50 hover:border-blue-300 transition-all group"
+                    >
+                      <ShieldCheck size={18} className="text-slate-400 group-hover:text-blue-500 mb-1"/>
+                      <span className="text-xs font-bold text-slate-600 group-hover:text-blue-700">经理预览</span>
+                    </button>
+                    <button 
+                      type="button" 
+                      onClick={() => enterMockMode('member')} 
+                      className="flex flex-col items-center justify-center py-3 px-4 border border-dashed border-slate-300 rounded-xl hover:bg-slate-50 hover:border-slate-400 transition-all group"
+                    >
+                      <UserCheck size={18} className="text-slate-400 group-hover:text-slate-600 mb-1"/>
+                      <span className="text-xs font-bold text-slate-600 group-hover:text-blue-900">成员预览</span>
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </form>
 

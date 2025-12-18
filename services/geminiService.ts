@@ -1,10 +1,7 @@
-
 import { GoogleGenAI } from "@google/genai";
 import { WorkLog, ManagerNote } from "../types";
 
 // Always use const ai = new GoogleGenAI({apiKey: process.env.API_KEY});
-// We assume process.env.API_KEY is provided via the shim in index.html or build environment
-// 👇 改成这样：使用 import.meta.env 读取 VITE_API_KEY
 const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY || "" });
 
 // Helper to format date
@@ -63,14 +60,14 @@ export const generateWeeklyReport = async (
     `;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: prompt,
     });
 
     return response.text || "生成失败，内容为空。";
   } catch (error) {
     console.error("Gemini API Error:", error);
-    return `生成出错: ${(error as Error).message}。请确保已正确配置 API_KEY 环境并能连接 Google API。`;
+    return `生成出错: ${(error as Error).message}。请确保 API 配置正确。`;
   }
 };
 
@@ -96,7 +93,7 @@ export const refineWeeklyReport = async (
     `;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: prompt,
     });
 

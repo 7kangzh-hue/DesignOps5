@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { pb, storage } from '../services/storage';
 import { User, UserRole } from '../types';
@@ -238,7 +239,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
       {showServerModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-sm w-full p-6 animate-in fade-in zoom-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 animate-in fade-in zoom-in duration-200">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
                 <Settings size={20} className="text-blue-600"/> 服务器配置
@@ -254,7 +255,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 value={serverUrl} 
                 onChange={(e) => setServerUrl(e.target.value)} 
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-mono" 
-                placeholder="http://82.156.7.149:8090" 
+                placeholder="http://106.55.198.216:8090" 
               />
             </div>
             <div className="flex flex-col gap-2">

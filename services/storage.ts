@@ -6,7 +6,7 @@ import { subDays } from 'date-fns/subDays';
 import PocketBase from 'pocketbase';
 import { Project, WorkLog, ManagerNote, WeeklyReport, AppConfig, DEFAULT_CONFIG, User, TagConfig, TypeConfig, DictItem } from '../types';
 
-const DEFAULT_SERVER_URL = 'http://82.156.7.149:8090';
+const DEFAULT_SERVER_URL = 'http://106.55.198.216:8090';
 const STORAGE_KEY_PB_URL = 'pocketbase_url';
 
 const getServerUrl = () => {

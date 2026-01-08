@@ -55,6 +55,25 @@ export interface WeeklyReport {
   created: string;
 }
 
+export interface PresentationSuggestionRecord {
+  id: string;
+  weekStartDate: string;
+  style: string;
+  outline: string[];
+  talkingPoints: Array<{
+    title: string;
+    script: string;
+    data: string;
+  }>;
+  qa: Array<{
+    question: string;
+    answer: string;
+  }>;
+  duration: string;
+  created: string;
+  updated: string;
+}
+
 export interface ReportTemplate {
   id: string;
   name: string;

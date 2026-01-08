@@ -5,6 +5,7 @@ import { Project, AppConfig, PROJECT_FIELD_LABELS, UserRole, DEFAULT_CONFIG, Tag
 import { Plus, Search, Filter, FolderKanban, Calendar, X, ChevronLeft, ChevronRight, Pencil, Trash2, AlertTriangle, Loader2, Layers, Tag, Layout, Check, Lock, ChevronDown, ChevronRight as ChevronRightIcon, User as UserIcon, Download } from 'lucide-react';
 import { ResizableTh } from './TableCommon';
 import { exportToCSV } from '../services/exportService';
+import { EmptyState } from './EmptyState';
 
 const getLabelFromDict = (list: DictItem[], key: string) => {
   if (!key) return '-';
@@ -94,7 +95,12 @@ const MultiSelect = ({
               </div>
             ))
           ) : (
-            <div className="p-4 text-center text-slate-400 text-xs font-bold uppercase tracking-widest">暂无可选择的人员</div>
+            <div className="p-6 text-center">
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-xl border border-slate-200">
+                <UserIcon size={14} className="text-slate-400" />
+                <span className="text-xs font-bold text-slate-500">暂无可选择的人员</span>
+              </div>
+            </div>
           )}
         </div>
       )}
@@ -386,8 +392,12 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ userRole, curren
     <div className="h-full flex flex-col w-full">
       <div className="flex justify-between items-center mb-10">
         <div>
-          <h2 className="text-3xl font-black text-slate-900 flex items-center gap-3 tracking-tight"> <FolderKanban className="text-indigo-600" size={32} /> 项目库 </h2>
-          <p className="text-slate-500 text-sm mt-2 font-medium">全量设计需求资产管理中心 (共 {totalItems} 条数据)</p>
+          <h2 className="text-3xl font-black text-slate-900 flex items-center gap-3 tracking-tight mb-2">
+            <FolderKanban className="text-indigo-600" size={32} /> 项目库
+          </h2>
+          <p className="text-slate-500 text-sm font-medium leading-relaxed">
+            全量设计需求资产管理中心 (共 {totalItems} 条数据)
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <button onClick={handleExport} className="h-12 px-6 rounded-2xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 flex items-center gap-2 transition-all font-black text-sm uppercase"> <Download size={20} /> 导出 </button>
@@ -418,7 +428,7 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ userRole, curren
         </div>
       </div>
 
-      <div className="bg-white rounded-[24px] shadow-sm border border-slate-200 flex-1 flex flex-col overflow-hidden">
+      <div className="bg-white rounded-[24px] shadow-md border border-slate-200 flex-1 flex flex-col overflow-hidden">
         <div className="overflow-auto flex-1 custom-scrollbar">
           <table className="w-full text-left text-sm whitespace-nowrap table-fixed border-separate border-spacing-0">
             <thead className="bg-slate-50/80 backdrop-blur-md sticky top-0 z-20">
@@ -439,7 +449,40 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ userRole, curren
                         </div>
                       </td>
                     </tr>
-              )) : ( <tr> <td colSpan={100} className="text-center py-32 text-slate-400 font-black uppercase tracking-widest text-xs"> 暂无记录 </td> </tr> )}
+              )) : (
+                <tr>
+                  <td colSpan={100} className="p-0">
+                    <EmptyState
+                      icon={FolderKanban}
+                      title="暂无项目记录"
+                      description="开始创建您的第一个项目，让团队工作更加有序"
+                      action={{
+                        label: '创建项目',
+                        onClick: () => {
+                          setIsEditing(false);
+                          setFormData({
+                            id: '',
+                            name: '',
+                            level: 'C',
+                            details: '',
+                            type: '',
+                            stage: 'not_started',
+                            platform: '',
+                            startTime: '',
+                            attribute: '',
+                            department: '',
+                            owner: [],
+                            contact: ''
+                          });
+                          setIsModalOpen(true);
+                        },
+                        icon: Plus
+                      }}
+                      illustration="project"
+                    />
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

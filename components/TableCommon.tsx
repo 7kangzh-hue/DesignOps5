@@ -10,7 +10,7 @@ interface ResizableThProps extends React.ThHTMLAttributes<HTMLTableCellElement> 
 
 export const ResizableTh: React.FC<ResizableThProps> = ({ 
   width, 
-  minWidth = 60, 
+  minWidth = 30, 
   onResize, 
   children, 
   className = "", 

@@ -4,7 +4,7 @@ import { format } from 'date-fns/format';
 import { parseISO } from 'date-fns/parseISO';
 import { subDays } from 'date-fns/subDays';
 import PocketBase from 'pocketbase';
-import { Project, WorkLog, ManagerNote, WeeklyReport, AppConfig, DEFAULT_CONFIG, User, TagConfig, TypeConfig, DictItem } from '../types';
+import { Project, WorkLog, ManagerNote, WeeklyReport, AppConfig, DEFAULT_CONFIG, User, TagConfig, TypeConfig, DictItem, PresentationSuggestionRecord } from '../types';
 
 const DEFAULT_SERVER_URL = 'http://106.55.198.216:8090';
 const STORAGE_KEY_PB_URL = 'pocketbase_url';
@@ -53,7 +53,8 @@ const MOCK_KEYS = {
   NOTES: 'mock_notes',
   REPORTS: 'mock_reports',
   CONFIG: 'mock_config',
-  USERS: 'mock_users'
+  USERS: 'mock_users',
+  PRESENTATION_SUGGESTIONS: 'mock_presentation_suggestions'
 };
 
 const safeGetItem = (key: string): string | null => {
@@ -382,5 +383,112 @@ export const storage = {
       return;
     }
     await pb.collection('users').delete(id);
+  },
+
+  async getPresentationSuggestions(weekStartDate?: string): Promise<PresentationSuggestionRecord[]> {
+    if (_isMockMode) {
+      const suggestions = JSON.parse(safeGetItem(MOCK_KEYS.PRESENTATION_SUGGESTIONS) || '[]');
+      let filtered = suggestions;
+      if (weekStartDate) {
+        filtered = suggestions.filter((s: any) => s.weekStartDate === weekStartDate);
+      }
+      return filtered.sort((a: any, b: any) => new Date(b.updated || b.created).getTime() - new Date(a.updated || a.created).getTime());
+    }
+    const filter = weekStartDate ? `weekStartDate="${weekStartDate}"` : '';
+    const records = await pb.collection('presentation_suggestions').getFullList({ 
+      sort: '-updated,-created', 
+      filter,
+      requestKey: null 
+    });
+    return records.map(r => ({ ...r, id: r.id } as any));
+  },
+
+  async savePresentationSuggestion(suggestion: Partial<PresentationSuggestionRecord>): Promise<PresentationSuggestionRecord> {
+    const { id, ...dataToSave } = suggestion;
+    const now = new Date().toISOString();
+    
+    if (_isMockMode) {
+      const suggestions = JSON.parse(safeGetItem(MOCK_KEYS.PRESENTATION_SUGGESTIONS) || '[]');
+      if (id) {
+        const idx = suggestions.findIndex((s: any) => s.id === id);
+        if (idx !== -1) {
+          const updated = { ...suggestions[idx], ...suggestion, updated: now };
+          suggestions[idx] = updated;
+          safeSetItem(MOCK_KEYS.PRESENTATION_SUGGESTIONS, JSON.stringify(suggestions));
+          notifyMockChange('presentation_suggestions');
+          return updated as PresentationSuggestionRecord;
+        }
+      }
+      // 检查是否已存在相同 weekStartDate 和 style 的记录，如果存在则更新
+      const existingIdx = suggestions.findIndex((s: any) => 
+        s.weekStartDate === suggestion.weekStartDate && s.style === suggestion.style
+      );
+      if (existingIdx !== -1) {
+        const updated = { ...suggestions[existingIdx], ...suggestion, updated: now };
+        suggestions[existingIdx] = updated;
+        safeSetItem(MOCK_KEYS.PRESENTATION_SUGGESTIONS, JSON.stringify(suggestions));
+        notifyMockChange('presentation_suggestions');
+        return updated as PresentationSuggestionRecord;
+      }
+      // 新建
+      const newSuggestion: PresentationSuggestionRecord = { 
+        id: 'ps_' + Date.now(),
+        weekStartDate: suggestion.weekStartDate || '',
+        style: suggestion.style || '',
+        outline: suggestion.outline || [],
+        talkingPoints: suggestion.talkingPoints || [],
+        qa: suggestion.qa || [],
+        duration: suggestion.duration || '',
+        created: now,
+        updated: now
+      };
+      suggestions.push(newSuggestion);
+      safeSetItem(MOCK_KEYS.PRESENTATION_SUGGESTIONS, JSON.stringify(suggestions));
+      notifyMockChange('presentation_suggestions');
+      return newSuggestion;
+    }
+    
+    // PocketBase: 检查是否已存在相同 weekStartDate 和 style 的记录
+    if (suggestion.weekStartDate && suggestion.style) {
+      const existing = await pb.collection('presentation_suggestions').getFirstListItem(
+        `weekStartDate="${suggestion.weekStartDate}" && style="${suggestion.style}"`,
+        { requestKey: null }
+      ).catch(() => null);
+      
+      if (existing) {
+        // 更新现有记录
+        const updated = await pb.collection('presentation_suggestions').update(existing.id, {
+          ...dataToSave,
+          updated: now
+        });
+        return { ...updated, id: updated.id } as any as PresentationSuggestionRecord;
+      }
+    }
+    
+    // 新建或更新指定 ID
+    if (id) {
+      const updated = await pb.collection('presentation_suggestions').update(id, {
+        ...dataToSave,
+        updated: now
+      });
+      return { ...updated, id: updated.id } as any as PresentationSuggestionRecord;
+    } else {
+      const created = await pb.collection('presentation_suggestions').create({
+        ...dataToSave,
+        created: now,
+        updated: now
+      });
+      return { ...created, id: created.id } as any as PresentationSuggestionRecord;
+    }
+  },
+
+  async deletePresentationSuggestion(id: string) {
+    if (_isMockMode) {
+      const suggestions = JSON.parse(safeGetItem(MOCK_KEYS.PRESENTATION_SUGGESTIONS) || '[]');
+      safeSetItem(MOCK_KEYS.PRESENTATION_SUGGESTIONS, JSON.stringify(suggestions.filter((s: any) => s.id !== id)));
+      notifyMockChange('presentation_suggestions');
+      return;
+    }
+    await pb.collection('presentation_suggestions').delete(id);
   }
 };

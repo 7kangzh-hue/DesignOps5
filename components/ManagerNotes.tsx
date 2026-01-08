@@ -13,6 +13,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { storage } from '../services/storage';
 import { ManagerNote, Project, AppConfig, DEFAULT_CONFIG } from '../types';
 import { PenLine, Calendar, ChevronLeft, ChevronRight, Trash2, Pencil, Save, X, Hash, AlertTriangle, Loader2, Plus, Sparkles, FolderKanban } from 'lucide-react';
+import { EmptyState } from './EmptyState';
 
 type ViewMode = 'day' | 'week';
 
@@ -189,10 +190,12 @@ export const ManagerNotes: React.FC = () => {
     <div className="h-full flex flex-col w-full">
       <div className="flex items-center justify-between mb-10">
         <div>
-          <h2 className="text-3xl font-black text-slate-900 flex items-center gap-3 tracking-tight">
+          <h2 className="text-3xl font-black text-slate-900 flex items-center gap-3 tracking-tight mb-2">
             <PenLine className="text-indigo-600" size={32} /> 每日随手记
           </h2>
-          <p className="text-slate-500 text-sm mt-2 font-medium">管理随享，实时关联项目库最新动态</p>
+          <p className="text-slate-500 text-sm font-medium leading-relaxed">
+            管理随享，实时关联项目库最新动态
+          </p>
         </div>
 
         <div className="flex items-center bg-white rounded-2xl shadow-sm border border-slate-200 p-1.5">
@@ -320,11 +323,23 @@ export const ManagerNotes: React.FC = () => {
                   );
                 })
               ) : (
-                <div className="h-full flex flex-col items-center justify-center text-slate-400 pt-20">
-                  <div className="w-24 h-24 bg-slate-100 rounded-[32px] flex items-center justify-center mb-6 shadow-inner"> <PenLine size={32} className="opacity-20 text-slate-500" /> </div>
-                  <p className="font-black text-xs uppercase tracking-[0.2em]">未找到记录</p>
-                  <p className="text-[10px] text-slate-400 mt-2 font-medium">开始记录您的管理洞察</p>
-                </div>
+                <EmptyState
+                  icon={PenLine}
+                  title="未找到记录"
+                  description={viewMode === 'day' 
+                    ? `在 ${format(currentDate, 'yyyy年MM月dd日')} 还没有记录，开始记录您的管理洞察吧` 
+                    : `本周还没有记录，开始记录您的管理洞察吧`}
+                  action={{
+                    label: '立即记录',
+                    onClick: () => {
+                      setInputValue('');
+                      setNoteDate(format(currentDate, 'yyyy-MM-dd'));
+                      inputRef.current?.focus();
+                    },
+                    icon: Plus
+                  }}
+                  illustration="note"
+                />
               )}
             </div>
           </div>

@@ -8,17 +8,141 @@ import { startOfWeek } from 'date-fns/startOfWeek';
 import { endOfWeek } from 'date-fns/endOfWeek';
 import { format } from 'date-fns/format';
 import { parseISO } from 'date-fns/parseISO';
+import { EmptyState } from './EmptyState';
+
+// 解析行内 markdown 格式（粗体、代码等）
+const parseInlineMarkdown = (text: string): React.ReactNode[] => {
+  if (!text) return [];
+  
+  const parts: React.ReactNode[] = [];
+  // 使用正则表达式分割文本，匹配 **粗体** 或 __粗体__
+  const regex = /(\*\*[^*]+\*\*|__[^_]+__|`[^`]+`)/g;
+  const matches: Array<{ type: 'bold' | 'code'; content: string; index: number; length: number }> = [];
+  let match;
+  
+  // 收集所有匹配项
+  while ((match = regex.exec(text)) !== null) {
+    const fullMatch = match[0];
+    let type: 'bold' | 'code' = 'bold';
+    let content = '';
+    
+    if (fullMatch.startsWith('`') && fullMatch.endsWith('`')) {
+      type = 'code';
+      content = fullMatch.slice(1, -1);
+    } else if (fullMatch.startsWith('**') && fullMatch.endsWith('**')) {
+      type = 'bold';
+      content = fullMatch.slice(2, -2);
+    } else if (fullMatch.startsWith('__') && fullMatch.endsWith('__')) {
+      type = 'bold';
+      content = fullMatch.slice(2, -2);
+    }
+    
+    matches.push({
+      type,
+      content,
+      index: match.index,
+      length: fullMatch.length
+    });
+  }
+  
+  // 如果没有匹配项，直接返回文本
+  if (matches.length === 0) {
+    return [text];
+  }
+  
+  // 构建结果
+  let lastIndex = 0;
+  matches.forEach((matchItem, idx) => {
+    // 添加匹配项之前的文本
+    if (matchItem.index > lastIndex) {
+      const beforeText = text.substring(lastIndex, matchItem.index);
+      if (beforeText) {
+        parts.push(beforeText);
+      }
+    }
+    
+    // 添加匹配项
+    if (matchItem.type === 'bold') {
+      parts.push(
+        <strong key={`bold-${idx}`} className="font-black text-indigo-600">
+          {matchItem.content}
+        </strong>
+      );
+    } else {
+      parts.push(
+        <code key={`code-${idx}`} className="bg-slate-100 px-1.5 py-0.5 rounded text-sm font-mono text-indigo-700">
+          {matchItem.content}
+        </code>
+      );
+    }
+    
+    // 计算匹配项的结束位置（使用原始匹配长度）
+    lastIndex = matchItem.index + matchItem.length;
+  });
+  
+  // 添加最后剩余的文本
+  if (lastIndex < text.length) {
+    parts.push(text.substring(lastIndex));
+  }
+  
+  return parts;
+};
 
 const SimpleMarkdownRenderer = ({ content }: { content: string }) => {
   return (
     <div className="prose prose-slate max-w-none prose-headings:font-black prose-headings:text-slate-900 prose-p:text-slate-600 prose-p:leading-loose prose-li:text-slate-600 prose-strong:text-indigo-600 prose-code:bg-slate-100 prose-code:px-1 prose-code:rounded prose-blockquote:border-l-4 prose-blockquote:border-indigo-200 prose-blockquote:bg-indigo-50/50 prose-blockquote:py-1 prose-blockquote:px-4 prose-blockquote:italic">
       {content.split('\n').map((line, i) => {
-        if (line.startsWith('# ')) return <h1 key={i} className="text-2xl font-black mb-6 mt-8 pb-4 border-b border-slate-100">{line.replace('# ', '')}</h1>;
-        if (line.startsWith('## ')) return <h2 key={i} className="text-xl font-black mb-4 mt-8 flex items-center gap-3"><div className="w-1.5 h-6 bg-indigo-500 rounded-full"></div>{line.replace('## ', '')}</h2>;
-        if (line.startsWith('### ')) return <h3 key={i} className="text-lg font-black mb-3 mt-6 text-slate-800">{line.replace('### ', '')}</h3>;
-        if (line.startsWith('- ')) return <li key={i} className="ml-4 mb-2 flex gap-2"><span className="text-indigo-400 mt-1.5 shrink-0 text-[8px]">●</span><span>{line.replace('- ', '')}</span></li>;
-        if (line.trim() === '') return <div key={i} className="h-4"></div>;
-        return <p key={i} className="mb-2 text-slate-700 leading-relaxed font-medium">{line}</p>;
+        const trimmedLine = line.trim();
+        
+        // 标题
+        if (trimmedLine.startsWith('# ')) {
+          const titleText = trimmedLine.replace(/^#+\s+/, '');
+          return (
+            <h1 key={i} className="text-2xl font-black mb-6 mt-8 pb-4 border-b border-slate-100">
+              {parseInlineMarkdown(titleText)}
+            </h1>
+          );
+        }
+        if (trimmedLine.startsWith('## ')) {
+          const titleText = trimmedLine.replace(/^##+\s+/, '');
+          return (
+            <h2 key={i} className="text-xl font-black mb-4 mt-8 flex items-center gap-3">
+              <div className="w-1.5 h-6 bg-indigo-500 rounded-full"></div>
+              <span>{parseInlineMarkdown(titleText)}</span>
+            </h2>
+          );
+        }
+        if (trimmedLine.startsWith('### ')) {
+          const titleText = trimmedLine.replace(/^###+\s+/, '');
+          return (
+            <h3 key={i} className="text-lg font-black mb-3 mt-6 text-slate-800">
+              {parseInlineMarkdown(titleText)}
+            </h3>
+          );
+        }
+        
+        // 列表项
+        if (trimmedLine.startsWith('- ') || trimmedLine.startsWith('* ')) {
+          const listText = trimmedLine.replace(/^[-*]\s+/, '');
+          return (
+            <li key={i} className="ml-4 mb-2 flex gap-2">
+              <span className="text-indigo-400 mt-1.5 shrink-0 text-[8px]">●</span>
+              <span className="text-slate-600 leading-relaxed">{parseInlineMarkdown(listText)}</span>
+            </li>
+          );
+        }
+        
+        // 空行
+        if (trimmedLine === '') {
+          return <div key={i} className="h-4"></div>;
+        }
+        
+        // 普通段落
+        return (
+          <p key={i} className="mb-2 text-slate-700 leading-relaxed font-medium">
+            {parseInlineMarkdown(trimmedLine)}
+          </p>
+        );
       })}
     </div>
   );
@@ -150,10 +274,12 @@ export const SmartReport: React.FC = () => {
     <div className="h-full flex flex-col w-full">
       <div className="flex justify-between items-center mb-10">
         <div>
-          <h2 className="text-3xl font-black text-slate-900 flex items-center gap-3 tracking-tight">
+          <h2 className="text-3xl font-black text-slate-900 flex items-center gap-3 tracking-tight mb-2">
             <Sparkles className="text-indigo-600" size={32} /> 智能 AI 周报
           </h2>
-          <p className="text-slate-500 text-sm mt-2 font-medium">基于团队数据与管理笔记，自动生成专业级管理报告</p>
+          <p className="text-slate-500 text-sm font-medium leading-relaxed">
+            基于团队数据与管理笔记，自动生成专业级管理报告
+          </p>
         </div>
 
         <div className="flex bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm">
@@ -259,13 +385,12 @@ export const SmartReport: React.FC = () => {
                   {reportContent ? (
                     <SimpleMarkdownRenderer content={reportContent} />
                   ) : (
-                    <div className="h-full flex flex-col items-center justify-center text-slate-300 text-center">
-                      <div className="w-20 h-20 bg-slate-100 rounded-[28px] flex items-center justify-center mb-6">
-                         <FileText size={40} className="opacity-20" />
-                      </div>
-                      <p className="font-black text-xs uppercase tracking-widest">暂无预览内容</p>
-                      <p className="text-[10px] text-slate-400 mt-2">请在左侧配置参数并点击生成按钮</p>
-                    </div>
+                    <EmptyState
+                      icon={FileText}
+                      title="暂无预览内容"
+                      description="请在左侧配置报告参数，然后点击生成按钮开始创建您的周报"
+                      illustration="data"
+                    />
                   )}
                 </div>
 
@@ -323,10 +448,12 @@ export const SmartReport: React.FC = () => {
                   </div>
                 </div>
               )) : (
-                <div className="bg-white p-12 rounded-[32px] border border-slate-200 text-center text-slate-300">
-                  <div className="mb-4 flex justify-center opacity-20"><History size={48}/></div>
-                  <p className="font-black text-xs uppercase tracking-widest">暂无历史记录</p>
-                </div>
+                <EmptyState
+                  icon={History}
+                  title="暂无历史记录"
+                  description="生成的周报将保存在这里，方便您随时查看和复用"
+                  illustration="data"
+                />
               )}
             </div>
 
@@ -354,12 +481,12 @@ export const SmartReport: React.FC = () => {
                   </div>
                 </>
               ) : (
-                <div className="h-full flex flex-col items-center justify-center text-slate-300 text-center">
-                   <div className="w-20 h-20 bg-slate-100 rounded-[28px] flex items-center justify-center mb-6">
-                      <Eye size={40} className="opacity-20" />
-                   </div>
-                   <p className="font-black text-xs uppercase tracking-widest">选择一份周报以查看详情</p>
-                </div>
+                <EmptyState
+                  icon={Eye}
+                  title="选择一份周报以查看详情"
+                  description="从左侧列表中选择一份历史周报，查看完整内容"
+                  illustration="data"
+                />
               )}
             </div>
           </div>

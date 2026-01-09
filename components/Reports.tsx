@@ -10,6 +10,7 @@ import { BarChart3, Calendar, Loader2, RefreshCw, Activity, Download, ArrowUp, A
 import { ResizableTh } from './TableCommon';
 import { exportToCSV } from '../services/exportService';
 import { EmptyState } from './EmptyState';
+import { ColumnManager, ColumnConfig } from './ColumnManager';
 
 type ReportTab = 'merged' | 'stats';
 
@@ -173,6 +174,30 @@ export const Reports: React.FC = () => {
   // 排序状态 - 部门统计报表
   const [statsSortField, setStatsSortField] = useState<string | null>(null);
   const [statsSortDirection, setStatsSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  // 列配置 - 项目合并报表
+  const defaultMergedColumns: ColumnConfig[] = [
+    { key: 'attr', label: '项目属性', visible: true },
+    { key: 'level', label: '项目级别', visible: true },
+    { key: 'dept', label: '归属部门', visible: true },
+    { key: 'name', label: '项目名称', visible: true },
+    { key: 'type', label: '需求类型', visible: true },
+    { key: 'platform', label: '开发平台', visible: true },
+    { key: 'summary', label: '工作汇总', visible: true },
+    { key: 'people', label: '参与人', visible: true },
+    { key: 'hours', label: '总工时', visible: true }
+  ];
+  const [mergedColumnConfig, setMergedColumnConfig] = useState<ColumnConfig[]>(defaultMergedColumns);
+
+  // 列配置 - 部门统计报表
+  const defaultStatsColumns: ColumnConfig[] = [
+    { key: 'dept', label: '归属部门', visible: true },
+    { key: 'type', label: '需求分类', visible: true },
+    { key: 'name', label: '项目名称', visible: true },
+    { key: 'people', label: '参与人员', visible: true },
+    { key: 'hours', label: '项目工时', visible: true }
+  ];
+  const [statsColumnConfig, setStatsColumnConfig] = useState<ColumnConfig[]>(defaultStatsColumns);
 
   const fetchData = useCallback(async (isManual = false) => {
     if (isManual) setIsRefreshing(true);
@@ -467,52 +492,83 @@ export const Reports: React.FC = () => {
 
   const handleExport = () => {
     if (activeTab === 'merged') {
-      const headers = {
-        attribute: '项目属性',
-        level: '项目级别',
-        dept: '归属部门',
-        projectName: '项目名称',
-        type: '需求类型',
-        platform: '开发平台',
-        summary: '工作内容汇总',
-        people: '参与人员',
-        hours: '总工时'
-      };
+      const headers: Record<string, string> = {};
+      mergedColumnConfig.filter(col => col.visible).forEach(col => {
+        const exportKey = col.key === 'attr' ? 'attribute' : col.key === 'name' ? 'projectName' : col.key === 'summary' ? 'summary' : col.key;
+        headers[exportKey] = col.label;
+      });
+
       const data = mergedProjectReport.map(item => {
         const majorLabel = translateLabel(config, 'types', item.typeKey);
         const subLabel = item.subTypeKey ? translateLabel(config, 'types', item.subTypeKey) : '';
-        return {
-          attribute: translateLabel(config, 'attributes', item.attributeKey),
-          level: translateLabel(config, 'levels', item.levelKey),
-          dept: translateLabel(config, 'departments', item.departmentKey),
-          projectName: item.projectName,
-          type: subLabel ? `${majorLabel} - ${subLabel}` : majorLabel,
-          platform: translateLabel(config, 'platforms', item.platformKey),
-          summary: item.contents.join('; '),
-          people: Array.from(item.participants).join(', '),
-          hours: item.totalHours
-        };
+        
+        const row: any = {};
+        mergedColumnConfig.filter(col => col.visible).forEach(col => {
+          const exportKey = col.key === 'attr' ? 'attribute' : col.key === 'name' ? 'projectName' : col.key === 'summary' ? 'summary' : col.key;
+          switch (col.key) {
+            case 'attr':
+              row[exportKey] = translateLabel(config, 'attributes', item.attributeKey);
+              break;
+            case 'level':
+              row[exportKey] = translateLabel(config, 'levels', item.levelKey);
+              break;
+            case 'dept':
+              row[exportKey] = translateLabel(config, 'departments', item.departmentKey);
+              break;
+            case 'name':
+              row[exportKey] = item.projectName;
+              break;
+            case 'type':
+              row[exportKey] = subLabel ? `${majorLabel} - ${subLabel}` : majorLabel;
+              break;
+            case 'platform':
+              row[exportKey] = translateLabel(config, 'platforms', item.platformKey);
+              break;
+            case 'summary':
+              row[exportKey] = item.contents.join('; ');
+              break;
+            case 'people':
+              row[exportKey] = Array.from(item.participants).join(', ');
+              break;
+            case 'hours':
+              row[exportKey] = item.totalHours;
+              break;
+          }
+        });
+        return row;
       });
       exportToCSV(data, headers, `项目工时合并报表_${startDate}_${endDate}`);
     } else {
-      const headers = {
-        dept: '归属部门',
-        type: '需求分类',
-        name: '项目名称',
-        people: '参与人员',
-        hours: '项目工时'
-      };
+      const headers: Record<string, string> = {};
+      statsColumnConfig.filter(col => col.visible).forEach(col => {
+        headers[col.key === 'name' ? 'name' : col.key] = col.label;
+      });
+
       const data: any[] = [];
       (Object.entries(deptStatsReport) as [string, DepartmentStats][]).forEach(([deptKey, deptData]) => {
         (Object.entries(deptData.types) as [string, TypeStats][]).forEach(([typeKey, typeData]) => {
           (Object.entries(typeData.projects) as [string, ProjectStats][]).forEach(([_, projData]) => {
-            data.push({
-              dept: translateLabel(config, 'departments', deptKey),
-              type: translateLabel(config, 'types', typeKey),
-              name: projData.name,
-              people: Array.from(projData.people).join(', '),
-              hours: projData.hours
+            const row: any = {};
+            statsColumnConfig.filter(col => col.visible).forEach(col => {
+              switch (col.key) {
+                case 'dept':
+                  row[col.key] = translateLabel(config, 'departments', deptKey);
+                  break;
+                case 'type':
+                  row[col.key] = translateLabel(config, 'types', typeKey);
+                  break;
+                case 'name':
+                  row[col.key] = projData.name;
+                  break;
+                case 'people':
+                  row[col.key] = Array.from(projData.people).join(', ');
+                  break;
+                case 'hours':
+                  row[col.key] = projData.hours;
+                  break;
+              }
             });
+            data.push(row);
           });
         });
       });
@@ -540,6 +596,21 @@ export const Reports: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center gap-4">
+          {activeTab === 'merged' ? (
+            <ColumnManager
+              columns={mergedColumnConfig}
+              onColumnsChange={setMergedColumnConfig}
+              storageKey="reports_merged_column_config"
+              title="项目合并报表列管理"
+            />
+          ) : (
+            <ColumnManager
+              columns={statsColumnConfig}
+              onColumnsChange={setStatsColumnConfig}
+              storageKey="reports_stats_column_config"
+              title="部门统计报表列管理"
+            />
+          )}
           <button onClick={handleExport} className="flex items-center justify-center h-12 px-6 bg-white border border-slate-200 rounded-2xl text-slate-600 hover:bg-slate-50 transition-all shadow-sm active:scale-95 font-black text-xs uppercase gap-2">
             <Download size={20} /> 导出报表
           </button>
@@ -570,72 +641,44 @@ export const Reports: React.FC = () => {
              <table className="min-w-full text-left text-sm table-fixed border-separate border-spacing-0">
               <thead className="bg-slate-50/80 backdrop-blur-md sticky top-0 z-20"> 
                 <tr> 
-                  <SortableResizableTh 
-                    width={mergedWidths.attr} 
-                    onResize={(w) => setMergedWidths({...mergedWidths, attr: w})}
-                    sortField="attribute"
-                    currentSortField={mergedSortField}
-                    sortDirection={mergedSortDirection}
-                    onSort={handleMergedSort}
-                  >项目属性</SortableResizableTh> 
-                  <SortableResizableTh 
-                    width={mergedWidths.level} 
-                    onResize={(w) => setMergedWidths({...mergedWidths, level: w})}
-                    sortField="level"
-                    currentSortField={mergedSortField}
-                    sortDirection={mergedSortDirection}
-                    onSort={handleMergedSort}
-                  >项目级别</SortableResizableTh> 
-                  <SortableResizableTh 
-                    width={mergedWidths.dept} 
-                    onResize={(w) => setMergedWidths({...mergedWidths, dept: w})}
-                    sortField="dept"
-                    currentSortField={mergedSortField}
-                    sortDirection={mergedSortDirection}
-                    onSort={handleMergedSort}
-                  >归属部门</SortableResizableTh> 
-                  <SortableResizableTh 
-                    width={mergedWidths.name} 
-                    onResize={(w) => setMergedWidths({...mergedWidths, name: w})}
-                    sortField="name"
-                    currentSortField={mergedSortField}
-                    sortDirection={mergedSortDirection}
-                    onSort={handleMergedSort}
-                  >项目名称</SortableResizableTh> 
-                  <SortableResizableTh 
-                    width={mergedWidths.type} 
-                    onResize={(w) => setMergedWidths({...mergedWidths, type: w})}
-                    sortField="type"
-                    currentSortField={mergedSortField}
-                    sortDirection={mergedSortDirection}
-                    onSort={handleMergedSort}
-                  >需求类型</SortableResizableTh> 
-                  <SortableResizableTh 
-                    width={mergedWidths.platform} 
-                    onResize={(w) => setMergedWidths({...mergedWidths, platform: w})}
-                    sortField="platform"
-                    currentSortField={mergedSortField}
-                    sortDirection={mergedSortDirection}
-                    onSort={handleMergedSort}
-                  >开发平台</SortableResizableTh> 
-                  <ResizableTh width={mergedWidths.summary} onResize={(w) => setMergedWidths({...mergedWidths, summary: w})}>工作汇总</ResizableTh> 
-                  <SortableResizableTh 
-                    width={mergedWidths.people} 
-                    onResize={(w) => setMergedWidths({...mergedWidths, people: w})}
-                    sortField="people"
-                    currentSortField={mergedSortField}
-                    sortDirection={mergedSortDirection}
-                    onSort={handleMergedSort}
-                  >参与人</SortableResizableTh> 
-                  <SortableResizableTh 
-                    width={mergedWidths.hours} 
-                    onResize={(w) => setMergedWidths({...mergedWidths, hours: w})}
-                    sortField="hours"
-                    currentSortField={mergedSortField}
-                    sortDirection={mergedSortDirection}
-                    onSort={handleMergedSort}
-                    className="text-right"
-                  >总工时</SortableResizableTh> 
+                  {mergedColumnConfig.filter(col => col.visible).map(col => {
+                    const isSortable = ['attr', 'level', 'dept', 'name', 'type', 'platform', 'people', 'hours'].includes(col.key);
+                    const sortFieldMap: Record<string, string> = {
+                      'attr': 'attribute',
+                      'dept': 'dept',
+                      'name': 'name',
+                      'type': 'type',
+                      'platform': 'platform',
+                      'people': 'people',
+                      'hours': 'hours',
+                      'level': 'level'
+                    };
+                    if (isSortable) {
+                      return (
+                        <SortableResizableTh
+                          key={col.key}
+                          width={mergedWidths[col.key] || 100}
+                          onResize={(w) => setMergedWidths({...mergedWidths, [col.key]: w})}
+                          sortField={sortFieldMap[col.key]}
+                          currentSortField={mergedSortField}
+                          sortDirection={mergedSortDirection}
+                          onSort={handleMergedSort}
+                          className={col.key === 'hours' ? 'text-right' : ''}
+                        >
+                          {col.label}
+                        </SortableResizableTh>
+                      );
+                    }
+                    return (
+                      <ResizableTh
+                        key={col.key}
+                        width={mergedWidths[col.key] || 100}
+                        onResize={(w) => setMergedWidths({...mergedWidths, [col.key]: w})}
+                      >
+                        {col.label}
+                      </ResizableTh>
+                    );
+                  })}
                 </tr> 
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -644,51 +687,94 @@ export const Reports: React.FC = () => {
                   const subLabel = item.subTypeKey ? translateLabel(config, 'types', item.subTypeKey) : '';
                   const levelConfig = (config.levels as TagConfig[]).find(l => l.key === item.levelKey || l.label === item.levelKey);
 
+                  const renderMergedCell = (colKey: string) => {
+                    switch (colKey) {
+                      case 'attr':
+                        return (
+                          <td key={colKey} className="px-6 py-4">
+                            <span className="px-3 py-1 rounded-lg text-[10px] font-black text-indigo-700 bg-indigo-50 border border-indigo-100 truncate inline-flex min-w-[70px] justify-center">
+                              {translateLabel(config, 'attributes', item.attributeKey)}
+                            </span>
+                          </td>
+                        );
+                      case 'level':
+                        return (
+                          <td key={colKey} className="px-6 py-4">
+                            <span className="inline-flex items-center justify-center min-w-[28px] h-6 rounded-lg text-[10px] font-black text-slate-700 border shadow-sm" style={{ backgroundColor: levelConfig?.color || '#f1f5f9' }}>
+                              {translateLabel(config, 'levels', item.levelKey)}
+                            </span>
+                          </td>
+                        );
+                      case 'dept':
+                        return (
+                          <td key={colKey} className="px-6 py-4 text-slate-600 font-bold truncate">
+                            {translateLabel(config, 'departments', item.departmentKey)}
+                          </td>
+                        );
+                      case 'name':
+                        return (
+                          <td key={colKey} className="px-6 py-4 font-bold text-slate-900">
+                            <div 
+                              className="whitespace-normal break-words max-h-24 overflow-hidden"
+                              style={{
+                                display: '-webkit-box',
+                                WebkitLineClamp: 3,
+                                WebkitBoxOrient: 'vertical',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis'
+                              }}
+                              title={item.projectName}
+                            >
+                              {item.projectName}
+                            </div>
+                          </td>
+                        );
+                      case 'type':
+                        return (
+                          <td key={colKey} className="px-6 py-4 text-slate-600 font-bold truncate">
+                            <span className="flex flex-col">
+                              <span>{majorLabel}</span>
+                              {subLabel && <span className="text-[9px] text-slate-400 font-medium">({subLabel})</span>}
+                            </span>
+                          </td>
+                        );
+                      case 'platform':
+                        return (
+                          <td key={colKey} className="px-6 py-4 text-slate-600 font-bold truncate">
+                            {translateLabel(config, 'platforms', item.platformKey)}
+                          </td>
+                        );
+                      case 'summary':
+                        return (
+                          <td key={colKey} className="px-6 py-4 text-slate-500">
+                            <ul className="space-y-1"> {item.contents.map((c, i) => <li key={i} className="flex items-start gap-2"> <span className="text-xs leading-relaxed">{c}</span> </li>)} </ul>
+                          </td>
+                        );
+                      case 'people':
+                        return (
+                          <td key={colKey} className="px-6 py-4 text-slate-600 font-bold truncate">
+                            {Array.from(item.participants).join(', ')}
+                          </td>
+                        );
+                      case 'hours':
+                        return (
+                          <td key={colKey} className="px-6 py-4 text-right font-black text-indigo-600">
+                            {item.totalHours}
+                          </td>
+                        );
+                      default:
+                        return null;
+                    }
+                  };
+
                   return (
                     <tr key={item.projectId} className="hover:bg-indigo-50/30 even:bg-slate-50 transition-colors group">
-                      <td className="px-6 py-4">
-                        <span className="px-3 py-1 rounded-lg text-[10px] font-black text-indigo-700 bg-indigo-50 border border-indigo-100 truncate inline-flex min-w-[70px] justify-center">
-                          {translateLabel(config, 'attributes', item.attributeKey)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="inline-flex items-center justify-center min-w-[28px] h-6 rounded-lg text-[10px] font-black text-slate-700 border shadow-sm" style={{ backgroundColor: levelConfig?.color || '#f1f5f9' }}>
-                          {translateLabel(config, 'levels', item.levelKey)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-slate-600 font-bold truncate">{translateLabel(config, 'departments', item.departmentKey)}</td>
-                      <td className="px-6 py-4 font-bold text-slate-900">
-                        <div 
-                          className="whitespace-normal break-words max-h-24 overflow-hidden"
-                          style={{
-                            display: '-webkit-box',
-                            WebkitLineClamp: 3,
-                            WebkitBoxOrient: 'vertical',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis'
-                          }}
-                          title={item.projectName}
-                        >
-                          {item.projectName}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-slate-600 font-bold truncate">
-                        <span className="flex flex-col">
-                          <span>{majorLabel}</span>
-                          {subLabel && <span className="text-[9px] text-slate-400 font-medium">({subLabel})</span>}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-slate-600 font-bold truncate">{translateLabel(config, 'platforms', item.platformKey)}</td>
-                      <td className="px-6 py-4 text-slate-500"> 
-                        <ul className="space-y-1"> {item.contents.map((c, i) => <li key={i} className="flex items-start gap-2"> <span className="text-xs leading-relaxed">{c}</span> </li>)} </ul> 
-                      </td>
-                      <td className="px-6 py-4 text-slate-600 font-bold truncate"> {Array.from(item.participants).join(', ')} </td>
-                      <td className="px-6 py-4 text-right font-black text-indigo-600">{item.totalHours}</td>
+                      {mergedColumnConfig.filter(col => col.visible).map(col => renderMergedCell(col.key))}
                     </tr>
                   );
                 }) : (
                   <tr>
-                    <td colSpan={9} className="p-0">
+                    <td colSpan={mergedColumnConfig.filter(col => col.visible).length} className="p-0">
                       <EmptyState
                         icon={BarChart3}
                         title="选定周期内无可用数据"
@@ -704,47 +790,34 @@ export const Reports: React.FC = () => {
              <table className="min-w-full text-left text-sm table-fixed border-separate border-spacing-0">
               <thead className="bg-slate-50/80 backdrop-blur-md sticky top-0 z-20"> 
                 <tr> 
-                  <SortableResizableTh 
-                    width={statsWidths.dept} 
-                    onResize={(w) => setStatsWidths({...statsWidths, dept: w})}
-                    sortField="dept"
-                    currentSortField={statsSortField}
-                    sortDirection={statsSortDirection}
-                    onSort={handleStatsSort}
-                  >归属部门</SortableResizableTh> 
-                  <SortableResizableTh 
-                    width={statsWidths.type} 
-                    onResize={(w) => setStatsWidths({...statsWidths, type: w})}
-                    sortField="type"
-                    currentSortField={statsSortField}
-                    sortDirection={statsSortDirection}
-                    onSort={handleStatsSort}
-                  >需求分类</SortableResizableTh> 
-                  <SortableResizableTh 
-                    width={statsWidths.name} 
-                    onResize={(w) => setStatsWidths({...statsWidths, name: w})}
-                    sortField="name"
-                    currentSortField={statsSortField}
-                    sortDirection={statsSortDirection}
-                    onSort={handleStatsSort}
-                  >项目名称</SortableResizableTh> 
-                  <SortableResizableTh 
-                    width={statsWidths.people} 
-                    onResize={(w) => setStatsWidths({...statsWidths, people: w})}
-                    sortField="people"
-                    currentSortField={statsSortField}
-                    sortDirection={statsSortDirection}
-                    onSort={handleStatsSort}
-                  >参与人员</SortableResizableTh> 
-                  <SortableResizableTh 
-                    width={statsWidths.hours} 
-                    onResize={(w) => setStatsWidths({...statsWidths, hours: w})}
-                    sortField="hours"
-                    currentSortField={statsSortField}
-                    sortDirection={statsSortDirection}
-                    onSort={handleStatsSort}
-                    className="text-right"
-                  >项目工时</SortableResizableTh> 
+                  {statsColumnConfig.filter(col => col.visible).map(col => {
+                    const isSortable = ['dept', 'type', 'name', 'people', 'hours'].includes(col.key);
+                    if (isSortable) {
+                      return (
+                        <SortableResizableTh
+                          key={col.key}
+                          width={statsWidths[col.key] || 100}
+                          onResize={(w) => setStatsWidths({...statsWidths, [col.key]: w})}
+                          sortField={col.key}
+                          currentSortField={statsSortField}
+                          sortDirection={statsSortDirection}
+                          onSort={handleStatsSort}
+                          className={col.key === 'hours' ? 'text-right' : ''}
+                        >
+                          {col.label}
+                        </SortableResizableTh>
+                      );
+                    }
+                    return (
+                      <ResizableTh
+                        key={col.key}
+                        width={statsWidths[col.key] || 100}
+                        onResize={(w) => setStatsWidths({...statsWidths, [col.key]: w})}
+                      >
+                        {col.label}
+                      </ResizableTh>
+                    );
+                  })}
                   <ResizableTh width={statsWidths.total} onResize={(w) => setStatsWidths({...statsWidths, total: w})} className="text-right bg-indigo-50/50 text-indigo-700">部门合计</ResizableTh> 
                 </tr> 
               </thead>
@@ -760,46 +833,80 @@ export const Reports: React.FC = () => {
                     const projectEntries = Object.entries(typeData.projects) as [string, ProjectStats][];
                     const typeLabel = translateLabel(config, 'types', typeKey);
                     
-                    return projectEntries.map(([projId, projData], projIndex) => (
-                      <tr key={`${deptKey}-${typeKey}-${projId}`} className={`${rowBgClass} hover:bg-indigo-50/30 transition-colors group`}>
-                        {typeIndex === 0 && projIndex === 0 && ( 
-                          <td rowSpan={deptRowSpan} className={`px-6 py-6 font-black text-slate-900 align-top border-r border-slate-100 ${rowBgClass} sticky left-0 z-10`}> 
-                            <div className="sticky top-24">{deptLabel}</div>
-                          </td> 
-                        )}
-                        {projIndex === 0 && ( 
-                          <td rowSpan={projectEntries.length} className={`px-6 py-6 align-top border-r border-slate-100 ${rowBgClass} font-bold text-slate-500`}> 
-                            <div className="sticky top-24">{typeLabel}</div>
-                          </td> 
-                        )}
-                        <td className="px-6 py-4 text-slate-700 font-bold align-middle">
-                          <div 
-                            className="whitespace-normal break-words max-h-24 overflow-hidden"
-                            style={{
-                              display: '-webkit-box',
-                              WebkitLineClamp: 3,
-                              WebkitBoxOrient: 'vertical',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis'
-                            }}
-                            title={projData.name}
-                          >
-                            {projData.name}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-slate-500 text-[10px] font-bold truncate align-middle"> {Array.from(projData.people).join(', ')} </td>
-                        <td className="px-6 py-4 text-right font-black text-slate-900 align-middle">{projData.hours}</td>
-                        {typeIndex === 0 && projIndex === 0 && ( 
-                          <td rowSpan={deptRowSpan} className={`px-6 py-6 font-black align-top text-right ${isEvenDept ? 'bg-indigo-50/20' : 'bg-indigo-50/40'} text-indigo-700 border-l border-indigo-100/50 shadow-[-5px_0_15px_-10px_rgba(0,0,0,0.1)]`}> 
-                            <div className="sticky top-24 text-xl">{deptData.totalHours}</div> 
-                          </td> 
-                        )}
-                      </tr>
-                    ));
+                    const renderStatsCell = (colKey: string, isFirstDeptRow: boolean, isFirstTypeRow: boolean, projData: ProjectStats) => {
+                      switch (colKey) {
+                        case 'dept':
+                          if (isFirstDeptRow) {
+                            return (
+                              <td key={colKey} rowSpan={deptRowSpan} className={`px-6 py-6 font-black text-slate-900 align-top border-r border-slate-100 ${rowBgClass} sticky left-0 z-10`}>
+                                <div className="sticky top-24">{deptLabel}</div>
+                              </td>
+                            );
+                          }
+                          return null;
+                        case 'type':
+                          if (isFirstTypeRow) {
+                            return (
+                              <td key={colKey} rowSpan={projectEntries.length} className={`px-6 py-6 align-top border-r border-slate-100 ${rowBgClass} font-bold text-slate-500`}>
+                                <div className="sticky top-24">{typeLabel}</div>
+                              </td>
+                            );
+                          }
+                          return null;
+                        case 'name':
+                          return (
+                            <td key={colKey} className="px-6 py-4 text-slate-700 font-bold align-middle">
+                              <div 
+                                className="whitespace-normal break-words max-h-24 overflow-hidden"
+                                style={{
+                                  display: '-webkit-box',
+                                  WebkitLineClamp: 3,
+                                  WebkitBoxOrient: 'vertical',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis'
+                                }}
+                                title={projData.name}
+                              >
+                                {projData.name}
+                              </div>
+                            </td>
+                          );
+                        case 'people':
+                          return (
+                            <td key={colKey} className="px-6 py-4 text-slate-500 text-[10px] font-bold truncate align-middle">
+                              {Array.from(projData.people).join(', ')}
+                            </td>
+                          );
+                        case 'hours':
+                          return (
+                            <td key={colKey} className="px-6 py-4 text-right font-black text-slate-900 align-middle">
+                              {projData.hours}
+                            </td>
+                          );
+                        default:
+                          return null;
+                      }
+                    };
+
+                    return projectEntries.map(([projId, projData], projIndex) => {
+                      const isFirstDeptRow = typeIndex === 0 && projIndex === 0;
+                      const isFirstTypeRow = projIndex === 0;
+                      
+                      return (
+                        <tr key={`${deptKey}-${typeKey}-${projId}`} className={`${rowBgClass} hover:bg-indigo-50/30 transition-colors group`}>
+                          {statsColumnConfig.filter(col => col.visible).map(col => renderStatsCell(col.key, isFirstDeptRow, isFirstTypeRow, projData))}
+                          {isFirstDeptRow && (
+                            <td rowSpan={deptRowSpan} className={`px-6 py-6 font-black align-top text-right ${isEvenDept ? 'bg-indigo-50/20' : 'bg-indigo-50/40'} text-indigo-700 border-l border-indigo-100/50 shadow-[-5px_0_15px_-10px_rgba(0,0,0,0.1)]`}>
+                              <div className="sticky top-24 text-xl">{deptData.totalHours}</div>
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    });
                   });
                 }) : (
                   <tr>
-                    <td colSpan={6} className="p-0">
+                    <td colSpan={statsColumnConfig.filter(col => col.visible).length + 1} className="p-0">
                       <EmptyState
                         icon={BarChart3}
                         title="选定周期内无可用数据"

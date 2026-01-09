@@ -6,6 +6,7 @@ import { Plus, Search, Filter, FolderKanban, Calendar, X, ChevronLeft, ChevronRi
 import { ResizableTh } from './TableCommon';
 import { exportToCSV } from '../services/exportService';
 import { EmptyState } from './EmptyState';
+import { ColumnManager, ColumnConfig } from './ColumnManager';
 
 const getLabelFromDict = (list: DictItem[], key: string) => {
   if (!key) return '-';
@@ -228,6 +229,7 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ userRole, curren
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
+  const [columnConfig, setColumnConfig] = useState<ColumnConfig[]>([]);
 
   const [filters, setFilters] = useState({ month: '', department: '', level: '', type: '', attribute: '', owner: '' });
   const [searchTerm, setSearchTerm] = useState('');
@@ -257,6 +259,31 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ userRole, curren
       });
       const savedWidths = localStorage.getItem('project_col_widths');
       setColWidths(savedWidths ? { ...initialWidths, ...JSON.parse(savedWidths) } : initialWidths);
+      
+      // 初始化列配置
+      const savedColumnConfig = localStorage.getItem('project_column_config');
+      if (savedColumnConfig) {
+        try {
+          const parsed = JSON.parse(savedColumnConfig);
+          setColumnConfig(parsed);
+        } catch (e) {
+          // 如果解析失败，使用默认配置
+          const defaultColumns: ColumnConfig[] = fetchedConfig.projectColumnOrder.map(key => ({
+            key,
+            label: PROJECT_FIELD_LABELS[key] || key,
+            visible: true
+          }));
+          setColumnConfig(defaultColumns);
+        }
+      } else {
+        // 默认配置：所有列都显示
+        const defaultColumns: ColumnConfig[] = fetchedConfig.projectColumnOrder.map(key => ({
+          key,
+          label: PROJECT_FIELD_LABELS[key] || key,
+          visible: true
+        }));
+        setColumnConfig(defaultColumns);
+      }
     } catch (e) { console.error(e); } finally { setIsLoading(false); }
   };
 
@@ -322,13 +349,14 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ userRole, curren
     // For export, we typically want the full list, but here we'll export current result or a larger batch
     const allResult = await storage.getProjects(1, 1000); 
     const headers: Record<string, string> = {};
-    config.projectColumnOrder.forEach(key => {
-      headers[key] = PROJECT_FIELD_LABELS[key] || key;
+    columnConfig.filter(col => col.visible).forEach(col => {
+      headers[col.key] = col.label;
     });
     
     const exportData = allResult.items.map(p => {
       const row: any = {};
-      config.projectColumnOrder.forEach(key => {
+      columnConfig.filter(col => col.visible).forEach(col => {
+        const key = col.key;
         switch (key) {
           case 'level': 
             row[key] = getLabelFromDict(config.levels, p.level);
@@ -400,6 +428,12 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ userRole, curren
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <ColumnManager
+            columns={columnConfig}
+            onColumnsChange={setColumnConfig}
+            storageKey="project_column_config"
+            title="项目库列管理"
+          />
           <button onClick={handleExport} className="h-12 px-6 rounded-2xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 flex items-center gap-2 transition-all font-black text-sm uppercase"> <Download size={20} /> 导出 </button>
           <button onClick={() => { setFormData(initialFormState); setIsEditing(false); setIsModalOpen(true); }} className="bg-indigo-600 text-white h-12 px-8 rounded-2xl hover:bg-indigo-700 flex items-center gap-2 shadow-xl shadow-indigo-100 transition-all font-black text-sm uppercase"> <Plus size={20} /> 新增项目 </button>
         </div>
@@ -433,8 +467,8 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ userRole, curren
           <table className="w-full text-left text-sm whitespace-nowrap table-fixed border-separate border-spacing-0">
             <thead className="bg-slate-50/80 backdrop-blur-md sticky top-0 z-20">
               <tr>
-                {config.projectColumnOrder.map(key => (
-                  <ResizableTh key={key} width={colWidths[key] || 120} onResize={(w) => handleResize(key, w)} className="px-6 py-2.5"> {PROJECT_FIELD_LABELS[key] || key} </ResizableTh>
+                {columnConfig.filter(col => col.visible).map(col => (
+                  <ResizableTh key={col.key} width={colWidths[col.key] || 120} onResize={(w) => handleResize(col.key, w)} className="px-6 py-2.5"> {col.label} </ResizableTh>
                 ))}
                 <th className="px-6 py-2.5 w-24 text-center sticky right-0 bg-slate-50 border-b border-slate-200 font-black text-[10px] uppercase tracking-widest text-slate-400"> 操作 </th>
               </tr>
@@ -442,7 +476,7 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ userRole, curren
             <tbody className="divide-y divide-slate-100">
               {displayData.length > 0 ? displayData.map(project => (
                     <tr key={project.id} className="hover:bg-indigo-50/30 even:bg-slate-50 transition-colors group">
-                      {config.projectColumnOrder.map(key => ( <td key={key} className="px-6 py-4 truncate text-slate-600 font-bold"> {renderCell(key, project)} </td> ))}
+                      {columnConfig.filter(col => col.visible).map(col => ( <td key={col.key} className="px-6 py-4 truncate text-slate-600 font-bold"> {renderCell(col.key, project)} </td> ))}
                       <td className="px-6 py-4 text-center sticky right-0 bg-white group-even:bg-slate-50 group-hover:bg-indigo-50 shadow-[-12px_0_15px_-10px_rgba(0,0,0,0.1)] z-20">
                         <div className="flex items-center justify-center gap-2">
                           {(userRole === 'manager' || project.createdBy === currentUserId) ? ( <> <button onClick={() => { setFormData({ ...project, owner: Array.isArray(project.owner) ? project.owner : [] }); setIsEditing(true); setIsModalOpen(true); }} className="p-2 text-indigo-600 hover:bg-white rounded-xl shadow-sm"> <Pencil size={14} /> </button> <button onClick={() => setDeleteId(project.id)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-white rounded-xl shadow-sm"> <Trash2 size={14} /> </button> </> ) : ( <Lock size={14} className="text-slate-300" /> )}

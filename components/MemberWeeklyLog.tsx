@@ -12,6 +12,7 @@ import { ResizableTh } from './TableCommon';
 import { exportToCSV } from '../services/exportService';
 import { generatePresentationSuggestion, PresentationSuggestion, PresentationStyle, PRESENTATION_STYLES } from '../services/geminiService';
 import { EmptyState } from './EmptyState';
+import { ColumnManager, ColumnConfig } from './ColumnManager';
 
 const getLabelFromDict = (list: DictItem[], key: string) => {
   if (!key) return '-';
@@ -333,6 +334,19 @@ export const MemberWeeklyLog: React.FC<{ userRole: UserRole, currentUser: string
   const [colWidths, setColWidths] = useState<Record<string, number>>({
     attribute: 100, level: 80, dept: 120, name: 200, type: 150, content: 400, worker: 100, hours: 80, actions: 100
   });
+
+  // 列配置
+  const defaultColumns: ColumnConfig[] = [
+    { key: 'attribute', label: '属性', visible: true },
+    { key: 'level', label: '级别', visible: true },
+    { key: 'dept', label: '部门', visible: true },
+    { key: 'name', label: '项目名称', visible: true },
+    { key: 'type', label: '类型', visible: true },
+    { key: 'content', label: '工作内容', visible: true },
+    { key: 'worker', label: '填写人', visible: true },
+    { key: 'hours', label: '工时', visible: true }
+  ];
+  const [columnConfig, setColumnConfig] = useState<ColumnConfig[]>(defaultColumns);
 
   // 排序状态
   const [sortField, setSortField] = useState<string | null>(null);
@@ -685,17 +699,12 @@ export const MemberWeeklyLog: React.FC<{ userRole: UserRole, currentUser: string
   };
 
   const handleExport = () => {
-    const headers = {
-      week: '填报周期',
-      attribute: '项目属性',
-      level: '级别',
-      dept: '归属部门',
-      projectName: '项目名称',
-      type: '类型',
-      content: '工作内容',
-      worker: '填写人',
-      hours: '工时'
+    const headers: Record<string, string> = {
+      week: '填报周期'
     };
+    columnConfig.filter(col => col.visible).forEach(col => {
+      headers[col.key === 'name' ? 'projectName' : col.key] = col.label;
+    });
 
     const exportData = viewLogs.map(log => {
       const projectFromLibrary = projects.find(p => p.id === log.projectId);
@@ -710,17 +719,41 @@ export const MemberWeeklyLog: React.FC<{ userRole: UserRole, currentUser: string
       const majorLabel = getLabelFromDict(config.types, currentMajorType);
       const subLabel = currentMajorType && currentSubType ? getLabelFromDict(config.types.find(t => t.key === currentMajorType || t.label === currentMajorType)?.subTypes || [], currentSubType) : '';
 
-      return {
-        week: getWeekRangeLabel(log.weekStartDate),
-        attribute: getLabelFromDict(config.attributes, currentAttribute),
-        level: getLabelFromDict(config.levels, currentLevel),
-        dept: getLabelFromDict(config.departments, currentDept),
-        projectName: realProject.name || log.projectName,
-        type: subLabel ? `${majorLabel} (${subLabel})` : majorLabel,
-        content: log.content,
-        worker: log.workerName,
-        hours: log.hours
+      const row: any = {
+        week: getWeekRangeLabel(log.weekStartDate)
       };
+      
+      columnConfig.filter(col => col.visible).forEach(col => {
+        const exportKey = col.key === 'name' ? 'projectName' : col.key;
+        switch (col.key) {
+          case 'attribute':
+            row[exportKey] = getLabelFromDict(config.attributes, currentAttribute);
+            break;
+          case 'level':
+            row[exportKey] = getLabelFromDict(config.levels, currentLevel);
+            break;
+          case 'dept':
+            row[exportKey] = getLabelFromDict(config.departments, currentDept);
+            break;
+          case 'name':
+            row[exportKey] = realProject.name || log.projectName;
+            break;
+          case 'type':
+            row[exportKey] = subLabel ? `${majorLabel} (${subLabel})` : majorLabel;
+            break;
+          case 'content':
+            row[exportKey] = log.content;
+            break;
+          case 'worker':
+            row[exportKey] = log.workerName;
+            break;
+          case 'hours':
+            row[exportKey] = log.hours;
+            break;
+        }
+      });
+
+      return row;
     });
 
     exportToCSV(exportData, headers, `工时台账_${selectedViewWeek}`);
@@ -828,6 +861,12 @@ export const MemberWeeklyLog: React.FC<{ userRole: UserRole, currentUser: string
            <select value={selectedViewWeek} onChange={(e) => setSelectedViewWeek(e.target.value)} className="h-11 bg-white border border-slate-200 px-5 rounded-xl text-sm font-bold shadow-sm outline-none">
              {Array.from(new Set([format(startOfWeek(new Date(), {weekStartsOn: 1}), 'yyyy-MM-dd'), ...logs.map(l => l.weekStartDate)])).sort().reverse().map(w => ( <option key={w} value={w}>{getWeekRangeLabel(w)}</option> ))}
            </select>
+           <ColumnManager
+             columns={columnConfig}
+             onColumnsChange={setColumnConfig}
+             storageKey="member_log_column_config"
+             title="工作台账列管理"
+           />
            <button onClick={handleExport} className="h-11 flex items-center gap-2 border border-slate-200 bg-white text-slate-600 px-6 rounded-xl hover:bg-slate-50 hover:border-slate-300 transition-all font-black text-sm uppercase shadow-sm hover:shadow-md"> <Download size={20} /> 导出台账 </button>
            {userRole === 'manager' && (
              <div className="relative" ref={styleSelectorRef}>
@@ -1070,60 +1109,34 @@ export const MemberWeeklyLog: React.FC<{ userRole: UserRole, currentUser: string
           <table className="min-w-full text-left text-sm table-fixed border-separate border-spacing-0">
             <thead className="bg-slate-50/80 backdrop-blur-md sticky top-0 z-20">
               <tr>
-                <SortableResizableTh 
-                  width={colWidths.attribute} 
-                  onResize={(w) => setColWidths({...colWidths, attribute: w})}
-                  sortField="attribute"
-                  currentSortField={sortField}
-                  sortDirection={sortDirection}
-                  onSort={handleSort}
-                >
-                  属性
-                </SortableResizableTh>
-                <SortableResizableTh 
-                  width={colWidths.level} 
-                  onResize={(w) => setColWidths({...colWidths, level: w})}
-                  sortField="level"
-                  currentSortField={sortField}
-                  sortDirection={sortDirection}
-                  onSort={handleSort}
-                >
-                  级别
-                </SortableResizableTh>
-                <ResizableTh width={colWidths.dept} onResize={(w) => setColWidths({...colWidths, dept: w})}>部门</ResizableTh>
-                <ResizableTh width={colWidths.name} onResize={(w) => setColWidths({...colWidths, name: w})}>项目名称</ResizableTh>
-                <SortableResizableTh 
-                  width={colWidths.type} 
-                  onResize={(w) => setColWidths({...colWidths, type: w})}
-                  sortField="type"
-                  currentSortField={sortField}
-                  sortDirection={sortDirection}
-                  onSort={handleSort}
-                >
-                  类型
-                </SortableResizableTh>
-                <ResizableTh width={colWidths.content} onResize={(w) => setColWidths({...colWidths, content: w})}>工作内容</ResizableTh>
-                <SortableResizableTh 
-                  width={colWidths.worker} 
-                  onResize={(w) => setColWidths({...colWidths, worker: w})}
-                  sortField="worker"
-                  currentSortField={sortField}
-                  sortDirection={sortDirection}
-                  onSort={handleSort}
-                >
-                  填写人
-                </SortableResizableTh>
-                <SortableResizableTh 
-                  width={colWidths.hours} 
-                  onResize={(w) => setColWidths({...colWidths, hours: w})}
-                  sortField="hours"
-                  currentSortField={sortField}
-                  sortDirection={sortDirection}
-                  onSort={handleSort}
-                  className="text-right"
-                >
-                  工时
-                </SortableResizableTh>
+                {columnConfig.filter(col => col.visible).map(col => {
+                  const isSortable = ['attribute', 'level', 'type', 'worker', 'hours'].includes(col.key);
+                  if (isSortable) {
+                    return (
+                      <SortableResizableTh
+                        key={col.key}
+                        width={colWidths[col.key] || 100}
+                        onResize={(w) => setColWidths({...colWidths, [col.key]: w})}
+                        sortField={col.key}
+                        currentSortField={sortField}
+                        sortDirection={sortDirection}
+                        onSort={handleSort}
+                        className={col.key === 'hours' ? 'text-right' : ''}
+                      >
+                        {col.label}
+                      </SortableResizableTh>
+                    );
+                  }
+                  return (
+                    <ResizableTh
+                      key={col.key}
+                      width={colWidths[col.key] || 100}
+                      onResize={(w) => setColWidths({...colWidths, [col.key]: w})}
+                    >
+                      {col.label}
+                    </ResizableTh>
+                  );
+                })}
                 <th className="px-6 py-2.5 w-24 text-center sticky right-0 bg-slate-50 font-black text-[10px] uppercase text-slate-400 border-b border-slate-200">操作</th>
               </tr>
             </thead>
@@ -1141,51 +1154,83 @@ export const MemberWeeklyLog: React.FC<{ userRole: UserRole, currentUser: string
                 const currentMajorType = realProject.type || (isRealProjectValid ? '' : log.projectType) || '';
                 const currentSubType = realProject.subType || (isRealProjectValid ? '' : log.projectSubType) || '';
                 
+                const renderCell = (colKey: string) => {
+                  switch (colKey) {
+                    case 'attribute':
+                      return (
+                        <td key={colKey} className="px-6 py-4">
+                          <span className="px-3 py-1 rounded-lg text-[10px] font-black text-indigo-700 bg-indigo-50 border border-indigo-100 truncate inline-flex min-w-[70px] justify-center">
+                            {getLabelFromDict(config.attributes, currentAttribute)}
+                          </span>
+                        </td>
+                      );
+                    case 'level':
+                      return (
+                        <td key={colKey} className="px-6 py-4">
+                          <span className="inline-flex items-center justify-center min-w-[28px] h-6 rounded-lg text-[10px] font-black text-slate-700 border shadow-sm" style={{ backgroundColor: (config.levels as TagConfig[]).find(l => l.key === currentLevel || l.label === currentLevel)?.color || '#f1f5f9' }}>
+                            {getLabelFromDict(config.levels, currentLevel)}
+                          </span>
+                        </td>
+                      );
+                    case 'dept':
+                      return (
+                        <td key={colKey} className="px-6 py-4 text-slate-600 font-bold truncate">
+                          {getLabelFromDict(config.departments, currentDept)}
+                        </td>
+                      );
+                    case 'name':
+                      return (
+                        <td key={colKey} className="px-6 py-4 text-slate-900 font-bold">
+                          <div
+                            className="whitespace-normal break-words"
+                            style={{
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis'
+                            }}
+                          >
+                            {realProject.name || log.projectName}
+                          </div>
+                        </td>
+                      );
+                    case 'type':
+                      return (
+                        <td key={colKey} className="px-6 py-4 text-slate-600 font-bold truncate">
+                          <div className="flex flex-col">
+                            <span className="text-slate-900">{getLabelFromDict(config.types, currentMajorType)}</span>
+                            {currentSubType && (
+                              <span className="text-[9px] text-slate-400 font-medium">
+                                ({getLabelFromDict(config.types.find(t => t.key === currentMajorType || t.label === currentMajorType)?.subTypes || [], currentSubType)})
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                      );
+                    case 'content':
+                      return (
+                        <td key={colKey} className="px-6 py-4 text-slate-600 whitespace-pre-wrap leading-relaxed">
+                          {log.content}
+                        </td>
+                      );
+                    case 'worker':
+                      return (
+                        <td key={colKey} className="px-6 py-4 text-slate-600 font-bold truncate">
+                          {log.workerName}
+                        </td>
+                      );
+                    case 'hours':
+                      return (
+                        <td key={colKey} className="px-6 py-4 text-right font-black text-indigo-600">
+                          {log.hours}
+                        </td>
+                      );
+                    default:
+                      return null;
+                  }
+                };
+                
                 return (
                   <tr key={log.id} className="hover:bg-indigo-50/30 even:bg-slate-50 transition-colors group">
-                    <td className="px-6 py-4"> 
-                      <span className="px-3 py-1 rounded-lg text-[10px] font-black text-indigo-700 bg-indigo-50 border border-indigo-100 truncate inline-flex min-w-[70px] justify-center">
-                        {getLabelFromDict(config.attributes, currentAttribute)}
-                      </span> 
-                    </td>
-                    <td className="px-6 py-4"> 
-                      <span className="inline-flex items-center justify-center min-w-[28px] h-6 rounded-lg text-[10px] font-black text-slate-700 border shadow-sm" style={{ backgroundColor: (config.levels as TagConfig[]).find(l => l.key === currentLevel || l.label === currentLevel)?.color || '#f1f5f9' }}>
-                        {getLabelFromDict(config.levels, currentLevel)}
-                      </span> 
-                    </td>
-                    <td className="px-6 py-4 text-slate-600 font-bold truncate">
-                      {getLabelFromDict(config.departments, currentDept)}
-                    </td>
-                    <td className="px-6 py-4 text-slate-900 font-bold">
-                      <div
-                        className="whitespace-normal break-words"
-                        style={{
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis'
-                        }}
-                      >
-                        {realProject.name || log.projectName}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-slate-600 font-bold truncate">
-                      <div className="flex flex-col">
-                        <span className="text-slate-900">{getLabelFromDict(config.types, currentMajorType)}</span>
-                        {currentSubType && (
-                          <span className="text-[9px] text-slate-400 font-medium">
-                            ({getLabelFromDict(config.types.find(t => t.key === currentMajorType || t.label === currentMajorType)?.subTypes || [], currentSubType)})
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-slate-600 whitespace-pre-wrap leading-relaxed">
-                      {log.content}
-                    </td>
-                    <td className="px-6 py-4 text-slate-600 font-bold truncate">
-                      {log.workerName}
-                    </td>
-                    <td className="px-6 py-4 text-right font-black text-indigo-600">
-                      {log.hours}
-                    </td>
+                    {columnConfig.filter(col => col.visible).map(col => renderCell(col.key))}
                     <td className="px-6 py-4 text-center sticky right-0 bg-white group-even:bg-slate-50 group-hover:bg-indigo-50 z-20 transition-colors shadow-[-12px_0_15px_-10px_rgba(0,0,0,0.1)]">
                       <div className="flex items-center justify-center gap-2">
                         <button onClick={() => { setFormWeekStart(log.weekStartDate); setTargetWorker(log.workerName); setFormRows([{ tempId: '1', id: log.id, projectId: log.projectId, content: log.content, hours: log.hours, originalCreatedBy: log.createdBy }]); setIsEditing(true); setIsModalOpen(true); }} disabled={!canManage} className={`p-2 rounded-xl transition-all ${canManage ? 'text-indigo-600 hover:bg-white shadow-sm' : 'text-slate-200'}`}> <Pencil size={14} /> </button>
@@ -1194,9 +1239,9 @@ export const MemberWeeklyLog: React.FC<{ userRole: UserRole, currentUser: string
                     </td>
                   </tr>
                 );
-              }) : (
+              }              ) : (
                 <tr>
-                  <td colSpan={9} className="p-0">
+                  <td colSpan={columnConfig.filter(col => col.visible).length + 1} className="p-0">
                     <EmptyState
                       icon={Clock}
                       title="本周暂无工时记录"

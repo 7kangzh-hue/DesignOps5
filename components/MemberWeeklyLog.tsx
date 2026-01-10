@@ -312,6 +312,55 @@ export const MemberWeeklyLog: React.FC<{ userRole: UserRole, currentUser: string
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
   const [hasDraft, setHasDraft] = useState(false);
   const autoSaveTimerRef = useRef<number | null>(null);
+
+  // 同步数据检测
+  useEffect(() => {
+    const checkSyncData = () => {
+      try {
+        const syncDataStr = localStorage.getItem('sync_to_worklog');
+        if (syncDataStr) {
+          const syncData = JSON.parse(syncDataStr);
+          const { logs, weekStartDate } = syncData;
+          
+          if (logs && logs.length > 0) {
+            // 设置周起始日期
+            setFormWeekStart(weekStartDate);
+            setSelectedViewWeek(weekStartDate);
+            
+            // 设置填写人为当前用户
+            setTargetWorker(currentUser);
+            
+            // 将同步的日志转换为表单行
+            const formRows = logs.map((log: any, index: number) => ({
+              tempId: `sync_${index}`,
+              projectId: log.projectId,
+              content: log.content,
+              hours: log.hours
+            }));
+            
+            // 如果已有行，保留第一行（通常是空的），然后添加同步的行
+            const existingRows = formRows.length > 0 ? formRows : [{ tempId: '1', projectId: '', content: '', hours: 0 }];
+            setFormRows(existingRows);
+            
+            // 打开模态框
+            setIsEditing(false);
+            setIsModalOpen(true);
+            
+            // 清除同步标记
+            localStorage.removeItem('sync_to_worklog');
+            
+            // 显示提示
+            alert(`已从每日流水同步 ${logs.length} 条记录到表单中，请检查并手动提交。`);
+          }
+        }
+      } catch (e) {
+        console.error('Failed to process sync data:', e);
+      }
+    };
+
+    // 检查同步数据
+    checkSyncData();
+  }, [currentUser]);
   
   // 按人员工时统计折叠状态
   const [isHoursByWorkerExpanded, setIsHoursByWorkerExpanded] = useState(true);

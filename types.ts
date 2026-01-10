@@ -219,5 +219,5 @@ export const PROJECT_FIELD_LABELS: Record<string, string> = {
   contact: '对接人'
 };
 
-export type ViewState = 'project-library' | 'member-log' | 'manager-notes' | 'smart-report' | 'reports' | 'settings';
+export type ViewState = 'project-library' | 'member-log' | 'daily-log' | 'manager-notes' | 'smart-report' | 'reports' | 'settings';
 export type UserRole = 'manager' | 'member';

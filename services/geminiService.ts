@@ -1,8 +1,9 @@
 import { GoogleGenAI } from "@google/genai";
 import { WorkLog, ManagerNote, Project } from "../types";
 
-// Always use const ai = new GoogleGenAI({apiKey: process.env.API_KEY});
-const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY || "" });
+// 向后兼容：使用新的环境变量名称
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.VITE_API_KEY || "";
+const ai = new GoogleGenAI({ apiKey });
 
 // Helper to format date
 const formatDate = (dateStr: string) => {

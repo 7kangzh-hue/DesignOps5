@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { storage } from '../services/storage';
-import { generateWeeklyReport, refineWeeklyReport } from '../services/geminiService';
+import { generateWeeklyReport, refineWeeklyReport } from '../services/deepseekService';
 import { WeeklyReport, AppConfig, DEFAULT_CONFIG } from '../types';
 import { Sparkles, Loader2, Save, History, MessageSquare, Send, Trash2, FileText, AlertTriangle, Calendar, Wand2, Copy, Check, Plus, Edit3, Eye } from 'lucide-react';
 import { startOfWeek } from 'date-fns/startOfWeek';

@@ -10,7 +10,7 @@ import { addDays } from 'date-fns/addDays';
 import { Calendar, Save, Trash2, Plus, Clock, Search, X, UserCircle, Download, ChevronDown, Check, Pencil, AlertTriangle, Loader2, ArrowUp, ArrowDown, ArrowUpDown, Users, TrendingUp, AlertCircle, Mic, Sparkles, Copy, History } from 'lucide-react';
 import { ResizableTh } from './TableCommon';
 import { exportToCSV } from '../services/exportService';
-import { generatePresentationSuggestion, PresentationSuggestion, PresentationStyle, PRESENTATION_STYLES } from '../services/geminiService';
+import { generatePresentationSuggestion, PresentationSuggestion, PresentationStyle, PRESENTATION_STYLES } from '../services/deepseekService';
 import { EmptyState } from './EmptyState';
 import { ColumnManager, ColumnConfig } from './ColumnManager';
 

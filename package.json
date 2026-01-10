@@ -9,12 +9,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "lucide-react": "^0.556.0",
-    "date-fns": "^4.1.0",
     "@google/genai": "^1.32.0",
-    "pocketbase": "^0.21.1"
+    "date-fns": "^4.1.0",
+    "lucide-react": "^0.556.0",
+    "openai": "^6.16.0",
+    "pocketbase": "^0.21.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",

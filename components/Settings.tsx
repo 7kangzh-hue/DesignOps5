@@ -2,17 +2,19 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { storage } from '../services/storage';
 import { AppConfig, PROJECT_FIELD_LABELS, ReportTemplate, User, DEFAULT_CONFIG, TagConfig, TypeConfig, DictItem } from '../types';
-import { Plus, Trash2, Settings as SettingsIcon, LayoutList, FileText, Edit2, Save, X, Users, Shield, AlertTriangle, List, ChevronRight, GripVertical, Loader2, Palette, Check, RefreshCw, Layers, Key, ExternalLink, ShieldCheck, ShieldAlert, Info, Lock } from 'lucide-react';
+import { Plus, Trash2, Settings as SettingsIcon, LayoutList, FileText, Edit2, Save, X, Users, Shield, AlertTriangle, List, ChevronRight, GripVertical, Loader2, Palette, Check, RefreshCw, Layers, Key, ExternalLink, ShieldCheck, ShieldAlert, Info, Lock, Bot, Zap } from 'lucide-react';
 import { ResizableTh } from './TableCommon';
 
 declare global {
-  interface AIStudio {
-    hasSelectedApiKey: () => Promise<boolean>;
-    openSelectKey: () => Promise<void>;
+  interface Window {
+    aistudio?: {
+      hasSelectedApiKey: () => Promise<boolean>;
+      openSelectKey: () => Promise<void>;
+    };
   }
 }
 
-type SettingTab = 'users' | 'dictionaries' | 'columns' | 'templates' | 'api';
+type SettingTab = 'users' | 'dictionaries' | 'columns' | 'templates' | 'api' | 'ai';
 
 interface SettingsProps {
   currentUserId?: string;
@@ -46,6 +48,7 @@ export const Settings: React.FC<SettingsProps> = ({ currentUserId }) => {
   const [newSubTypeLabel, setNewSubTypeLabel] = useState('');
   const [hasApiKey, setHasApiKey] = useState<boolean>(false);
   const [keyCheckLoading, setKeyCheckLoading] = useState(true);
+  const [aiProvider, setAiProvider] = useState<'deepseek' | 'gemini'>('deepseek');
 
   const dragItem = useRef<number | null>(null);
   const dragOverItem = useRef<number | null>(null);
@@ -57,6 +60,9 @@ export const Settings: React.FC<SettingsProps> = ({ currentUserId }) => {
   useEffect(() => { 
     loadConfig(); 
     checkApiKeyStatus();
+    // 初始化AI提供商状态
+    const savedProvider = localStorage.getItem('app_ai_provider') as 'deepseek' | 'gemini' | null;
+    setAiProvider(savedProvider || 'deepseek');
   }, []);
 
   const checkApiKeyStatus = async () => {
@@ -64,7 +70,9 @@ export const Settings: React.FC<SettingsProps> = ({ currentUserId }) => {
       const has = await window.aistudio.hasSelectedApiKey();
       setHasApiKey(has);
     } else {
-      setHasApiKey(!!(process.env.API_KEY || ''));
+      // 简化检查：在浏览器环境中，我们无法直接访问环境变量
+      // 假设如果没有aistudio API，则没有API密钥
+      setHasApiKey(false);
     }
     setKeyCheckLoading(false);
   };
@@ -189,6 +197,19 @@ export const Settings: React.FC<SettingsProps> = ({ currentUserId }) => {
       await saveConfigChange({ ...config, projectColumnOrder: newOrder });
     }
     dragItem.current = dragOverItem.current = null;
+  };
+
+  const handleProviderChange = (provider: 'deepseek' | 'gemini') => {
+    if (provider === aiProvider) return;
+    
+    // 更新localStorage
+    localStorage.setItem('app_ai_provider', provider);
+    
+    // 更新组件状态
+    setAiProvider(provider);
+    
+    // 显示提示
+    alert(`已切换到 ${provider === 'deepseek' ? 'DeepSeek V3' : 'Google Gemini'} 模型。智能周报功能将立即生效。`);
   };
 
   const renderTabContent = () => {
@@ -425,6 +446,119 @@ export const Settings: React.FC<SettingsProps> = ({ currentUserId }) => {
           </div>
         );
 
+      case 'ai':
+        return (
+          <div className="bg-white rounded-[32px] border border-slate-200 p-10 shadow-sm">
+            <div className="flex items-start gap-6 mb-10 border-b border-slate-50 pb-8">
+              <div className="w-14 h-14 bg-indigo-50 rounded-[20px] flex items-center justify-center text-indigo-600">
+                <Bot size={28} />
+              </div>
+              <div>
+                <h3 className="text-2xl font-black text-slate-900 tracking-tight">AI 模型设置</h3>
+                <p className="text-sm text-slate-500 mt-2 font-medium">选择智能周报功能使用的大语言模型提供商</p>
+              </div>
+            </div>
+
+            <div className="max-w-2xl mx-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* DeepSeek 选项 */}
+                <div 
+                  className={`p-8 rounded-3xl border-2 transition-all cursor-pointer ${aiProvider === 'deepseek' ? 'border-indigo-600 bg-indigo-50/30 shadow-xl shadow-indigo-100/50' : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-lg'}`}
+                  onClick={() => handleProviderChange('deepseek')}
+                >
+                  <div className="flex items-center gap-4 mb-6">
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${aiProvider === 'deepseek' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                      <Bot size={24} />
+                    </div>
+                    <div>
+                      <h4 className="text-lg font-black text-slate-900">DeepSeek V3</h4>
+                      <p className="text-xs text-slate-500 mt-1">默认模型，无需额外配置</p>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-2 h-2 rounded-full ${aiProvider === 'deepseek' ? 'bg-indigo-600' : 'bg-slate-300'}`}></div>
+                      <span className="text-sm font-medium text-slate-700">免费使用，无需API密钥</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className={`w-2 h-2 rounded-full ${aiProvider === 'deepseek' ? 'bg-indigo-600' : 'bg-slate-300'}`}></div>
+                      <span className="text-sm font-medium text-slate-700">中文优化，响应速度快</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className={`w-2 h-2 rounded-full ${aiProvider === 'deepseek' ? 'bg-indigo-600' : 'bg-slate-300'}`}></div>
+                      <span className="text-sm font-medium text-slate-700">128K上下文长度</span>
+                    </div>
+                  </div>
+                  <div className="mt-8 pt-6 border-t border-slate-100">
+                    <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest ${aiProvider === 'deepseek' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                      {aiProvider === 'deepseek' ? (
+                        <>
+                          <Check size={12} /> 当前使用中
+                        </>
+                      ) : '点击切换'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Google Gemini 选项 */}
+                <div 
+                  className={`p-8 rounded-3xl border-2 transition-all cursor-pointer ${aiProvider === 'gemini' ? 'border-indigo-600 bg-indigo-50/30 shadow-xl shadow-indigo-100/50' : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-lg'}`}
+                  onClick={() => handleProviderChange('gemini')}
+                >
+                  <div className="flex items-center gap-4 mb-6">
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${aiProvider === 'gemini' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                      <Zap size={24} />
+                    </div>
+                    <div>
+                      <h4 className="text-lg font-black text-slate-900">Google Gemini</h4>
+                      <p className="text-xs text-slate-500 mt-1">需要配置API密钥</p>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-2 h-2 rounded-full ${aiProvider === 'gemini' ? 'bg-indigo-600' : 'bg-slate-300'}`}></div>
+                      <span className="text-sm font-medium text-slate-700">Google最新AI模型</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className={`w-2 h-2 rounded-full ${aiProvider === 'gemini' ? 'bg-indigo-600' : 'bg-slate-300'}`}></div>
+                      <span className="text-sm font-medium text-slate-700">多模态能力强大</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className={`w-2 h-2 rounded-full ${aiProvider === 'gemini' ? 'bg-indigo-600' : 'bg-slate-300'}`}></div>
+                      <span className="text-sm font-medium text-slate-700">需要有效的API密钥</span>
+                    </div>
+                  </div>
+                  <div className="mt-8 pt-6 border-t border-slate-100">
+                    <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest ${aiProvider === 'gemini' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                      {aiProvider === 'gemini' ? (
+                        <>
+                          <Check size={12} /> 当前使用中
+                        </>
+                      ) : '点击切换'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-12 p-6 bg-slate-50 rounded-3xl border border-slate-100">
+                <div className="flex items-start gap-4">
+                  <Info className="text-indigo-500 mt-0.5" size={20} />
+                  <div>
+                    <h4 className="text-sm font-black text-slate-900 mb-2">切换说明</h4>
+                    <p className="text-sm text-slate-600">
+                      切换AI模型后，系统将立即使用新模型生成智能周报。无需刷新页面，所有AI功能（周报生成、报告优化、演示建议）都会自动切换到对应的服务提供商。
+                    </p>
+                    <div className="mt-4 flex items-center gap-2 text-xs text-slate-500">
+                      <RefreshCw size={12} />
+                      <span>当前使用: <span className="font-black text-slate-900">{aiProvider === 'deepseek' ? 'DeepSeek V3' : 'Google Gemini'}</span></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+
       default: return null;
     }
   };
@@ -445,8 +579,9 @@ export const Settings: React.FC<SettingsProps> = ({ currentUserId }) => {
           { id: 'users', label: '成员管理', icon: <Users size={16} /> },
           { id: 'dictionaries', label: '业务词典', icon: <Layers size={16} /> },
           { id: 'columns', label: '列表字段', icon: <LayoutList size={16} /> },
-          { id: 'templates', label: '周报模版', icon: <FileText size={16} /> },
-          { id: 'api', label: 'API 配置', icon: <Key size={16} /> }
+      { id: 'templates', label: '周报模版', icon: <FileText size={16} /> },
+      { id: 'api', label: 'API 配置', icon: <Key size={16} /> },
+      { id: 'ai', label: 'AI 模型', icon: <Bot size={16} /> }
         ].map(tab => (
           <button 
             key={tab.id} 

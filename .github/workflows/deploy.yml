@@ -19,7 +19,10 @@ jobs:
       
       - name: Install and Build 🔧
         env:
-          # 从 GitHub Secrets 读取 API Key
+          # 从 GitHub Secrets 读取 AI 服务 API Keys
+          VITE_GEMINI_API_KEY: ${{ secrets.VITE_GEMINI_API_KEY }}
+          VITE_DEEPSEEK_API_KEY: ${{ secrets.VITE_DEEPSEEK_API_KEY }}
+          # 向后兼容：旧版本的 Gemini API Key
           VITE_API_KEY: ${{ secrets.VITE_API_KEY }}
         run: |
           npm ci

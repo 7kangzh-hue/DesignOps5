@@ -143,9 +143,10 @@ const App: React.FC = () => {
               <p className="px-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-4 opacity-70">工作空间</p>
               <NavItem view="project-library" label="项目库" icon={FolderKanban} />
               <NavItem view="member-log" label="工作台账" icon={PenTool} />
-              {userRole === 'member' && (
+              {/* 每日流水功能已暂时关闭 */}
+              {/* {userRole === 'member' && (
                 <NavItem view="daily-log" label="每日流水" icon={CalendarDays} />
-              )}
+              )} */}
             </div>
 
             {userRole === 'manager' && (
@@ -198,9 +199,10 @@ const App: React.FC = () => {
             {currentView === 'member-log' && (
               <MemberWeeklyLog userRole={userRole} currentUser={currentUser} currentUserId={currentUserId} />
             )}
-            {currentView === 'daily-log' && (
+            {/* 每日流水功能已暂时关闭 */}
+            {/* {currentView === 'daily-log' && (
               <DailyLogManager userRole={userRole} currentUser={currentUser} currentUserId={currentUserId} />
-            )}
+            )} */}
             
             {userRole === 'manager' && (
               <>

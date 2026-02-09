@@ -3,12 +3,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { storage } from '../services/storage';
 import { generateWeeklyReport, refineWeeklyReport } from '../services/aiService';
 import { WeeklyReport, AppConfig, DEFAULT_CONFIG } from '../types';
-import { Sparkles, Loader2, Save, History, MessageSquare, Send, Trash2, FileText, AlertTriangle, Calendar, Wand2, Copy, Check, Plus, Edit3, Eye } from 'lucide-react';
+import { Sparkles, Loader2, Save, History, MessageSquare, Send, Trash2, FileText, AlertTriangle, Calendar, Wand2, Copy, Check, Plus, Edit3, Eye, FileJson } from 'lucide-react';
 import { startOfWeek } from 'date-fns/startOfWeek';
 import { endOfWeek } from 'date-fns/endOfWeek';
 import { format } from 'date-fns/format';
 import { parseISO } from 'date-fns/parseISO';
 import { EmptyState } from './EmptyState';
+import { parseMarkdownToErpJsonString } from '../src/utils/reportParser';
 
 // 解析行内 markdown 格式（粗体、代码等）
 const parseInlineMarkdown = (text: string): React.ReactNode[] => {
@@ -165,6 +166,8 @@ export const SmartReport: React.FC = () => {
   const [isRefining, setIsRefining] = useState(false);
   const [viewingReport, setViewingReport] = useState<WeeklyReport | null>(null);
   const [copySuccess, setCopySuccess] = useState(false);
+  const [erpCopySuccess, setErpCopySuccess] = useState(false);
+  const [historyErpCopySuccess, setHistoryErpCopySuccess] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -268,6 +271,44 @@ export const SmartReport: React.FC = () => {
     }
   };
 
+  const handleExportToErp = () => {
+    if (!reportContent) return;
+    
+    try {
+      // 解析 Markdown 为 ERP JSON
+      const erpJson = parseMarkdownToErpJsonString(reportContent);
+      
+      // 复制到剪贴板
+      navigator.clipboard.writeText(erpJson);
+      
+      // 显示成功状态
+      setErpCopySuccess(true);
+      setTimeout(() => setErpCopySuccess(false), 2000);
+    } catch (error) {
+      console.error('ERP 导出失败:', error);
+      alert('ERP 导出失败，请检查周报格式');
+    }
+  };
+
+  const handleExportHistoryToErp = () => {
+    if (!viewingReport?.content) return;
+    
+    try {
+      // 解析历史记录的 Markdown 为 ERP JSON
+      const erpJson = parseMarkdownToErpJsonString(viewingReport.content);
+      
+      // 复制到剪贴板
+      navigator.clipboard.writeText(erpJson);
+      
+      // 显示成功状态
+      setHistoryErpCopySuccess(true);
+      setTimeout(() => setHistoryErpCopySuccess(false), 2000);
+    } catch (error) {
+      console.error('历史记录 ERP 导出失败:', error);
+      alert('ERP 导出失败，请检查周报格式');
+    }
+  };
+
   if (isLoading) return <div className="h-full flex items-center justify-center py-20"><Loader2 className="animate-spin text-indigo-500" /></div>;
 
   return (
@@ -363,7 +404,7 @@ export const SmartReport: React.FC = () => {
             {/* Right Preview Panel */}
             <div className="col-span-12 lg:col-span-8 flex flex-col h-full gap-6">
               <div className="flex-1 bg-white rounded-[40px] shadow-sm border border-slate-200 flex flex-col overflow-hidden">
-                <div className="h-16 border-b border-slate-50 flex items-center justify-between px-8 shrink-0">
+                  <div className="h-16 border-b border-slate-50 flex items-center justify-between px-8 shrink-0">
                   <div className="flex items-center gap-2">
                     <div className="w-2.5 h-2.5 rounded-full bg-indigo-500"></div>
                     <span className="text-xs font-black uppercase tracking-widest text-slate-500">报告预览</span>
@@ -372,6 +413,14 @@ export const SmartReport: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <button onClick={handleCopy} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all" title="复制全文">
                         {copySuccess ? <Check size={18} className="text-emerald-500" /> : <Copy size={18} />}
+                      </button>
+                      <button 
+                        onClick={handleExportToErp}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${erpCopySuccess ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 hover:border-slate-300'}`}
+                        title="导出为 ERP JSON 格式"
+                      >
+                        {erpCopySuccess ? <Check size={14} className="text-emerald-500" /> : <FileJson size={14} />}
+                        {erpCopySuccess ? '已复制' : 'ERP 代码'}
                       </button>
                       <button onClick={handleSave} disabled={isSaving} className="flex items-center gap-2 px-5 py-2 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all active:scale-95">
                         {isSaving ? <Loader2 className="animate-spin" size={14} /> : <Save size={14} />}
@@ -464,17 +513,27 @@ export const SmartReport: React.FC = () => {
                     <div className="flex items-center gap-4">
                       <span className="text-sm font-black text-slate-900">{viewingReport.startDate} 至 {viewingReport.endDate}</span>
                     </div>
-                    <button 
-                      onClick={() => {
-                        navigator.clipboard.writeText(viewingReport.content);
-                        setCopySuccess(true);
-                        setTimeout(() => setCopySuccess(false), 2000);
-                      }}
-                      className="flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all active:scale-95"
-                    >
-                      {copySuccess ? <Check size={14} /> : <Copy size={14} />}
-                      {copySuccess ? '已复制' : '复制全文'}
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button 
+                        onClick={handleExportHistoryToErp}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${historyErpCopySuccess ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 hover:border-slate-300'}`}
+                        title="导出为 ERP JSON 格式"
+                      >
+                        {historyErpCopySuccess ? <Check size={14} className="text-emerald-500" /> : <FileJson size={14} />}
+                        {historyErpCopySuccess ? '已复制' : 'ERP 代码'}
+                      </button>
+                      <button 
+                        onClick={() => {
+                          navigator.clipboard.writeText(viewingReport.content);
+                          setCopySuccess(true);
+                          setTimeout(() => setCopySuccess(false), 2000);
+                        }}
+                        className="flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all active:scale-95"
+                      >
+                        {copySuccess ? <Check size={14} /> : <Copy size={14} />}
+                        {copySuccess ? '已复制' : '复制全文'}
+                      </button>
+                    </div>
                   </div>
                   <div className="flex-1 overflow-y-auto p-12 custom-scrollbar">
                     <SimpleMarkdownRenderer content={viewingReport.content} />

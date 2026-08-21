@@ -48,6 +48,12 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
         name: authData.record.name,
         role: (authData.record.role as UserRole) || 'member',
       };
+
+      const config = await storage.getConfig();
+      if ((config.inactiveMemberNames || []).includes(user.name)) {
+        pb.authStore.clear();
+        throw new Error('ACCOUNT_INACTIVE');
+      }
       
       if (rememberMe) {
         localStorage.setItem('saved_username', username);
@@ -60,7 +66,9 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
       onLogin(user);
     } catch (err: any) {
       console.error("Login attempt failed:", err);
-      if (err.status === 0 || err.message?.includes('Failed to fetch')) {
+      if (err.message === 'ACCOUNT_INACTIVE') {
+        setError('该账号已离职停用，请联系管理员。');
+      } else if (err.status === 0 || err.message?.includes('Failed to fetch')) {
         setError(`无法连接到服务器 (${serverUrl})。请点击右上角设置图标检查服务器地址是否正确，或确保后端已启动。`);
       } else if (err.status === 400 || err.status === 403) {
         setError('账号或密码错误，或该用户已被禁用。');

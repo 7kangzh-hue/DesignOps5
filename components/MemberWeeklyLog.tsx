@@ -514,8 +514,9 @@ export const MemberWeeklyLog: React.FC<{ userRole: UserRole, currentUser: string
     const filledMembers = new Set(viewLogs.map(log => log.workerName));
     return config.users
       .filter(u => u.role === 'member')
+      .filter(u => !(config.inactiveMemberNames || []).includes(u.name))
       .filter(u => !filledMembers.has(u.name));
-  }, [viewLogs, config.users, userRole]);
+  }, [viewLogs, config.users, config.inactiveMemberNames, userRole]);
 
   // 工时统计
   const hoursStats = useMemo(() => {
@@ -1381,7 +1382,9 @@ export const MemberWeeklyLog: React.FC<{ userRole: UserRole, currentUser: string
                       onChange={(e) => setTargetWorker(e.target.value)} 
                       className="h-10 border border-slate-200 bg-white rounded-lg px-3 text-sm font-bold outline-none focus:border-indigo-400"
                     >
-                      {config.users.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
+                      {config.users
+                        .filter(u => !(config.inactiveMemberNames || []).includes(u.name))
+                        .map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
                     </select>
                   ) : (
                     <span className="h-10 px-3 flex items-center bg-slate-100 rounded-lg text-sm font-bold text-slate-500">

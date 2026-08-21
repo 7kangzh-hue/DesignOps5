@@ -45,6 +45,13 @@ const App: React.FC = () => {
           await pb.collection('users').authRefresh();
           const model = pb.authStore.model;
           if (model) {
+            const config = await storage.getConfig();
+            if ((config.inactiveMemberNames || []).includes(model.name)) {
+              pb.authStore.clear();
+              setIsAuthenticated(false);
+              setIsLoading(false);
+              return;
+            }
             setIsAuthenticated(true);
             setCurrentUser(model.name);
             setCurrentUserId(model.id);

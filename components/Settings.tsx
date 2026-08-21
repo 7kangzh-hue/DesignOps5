@@ -54,7 +54,7 @@ export const Settings: React.FC<SettingsProps> = ({ currentUserId }) => {
   const dragOverItem = useRef<number | null>(null);
   
   const [userColWidths, setUserColWidths] = useState<Record<string, number>>({ 
-    name: 200, username: 250, role: 150, actions: 120 
+    name: 200, username: 250, role: 150, actions: 200
   });
 
   useEffect(() => { 
@@ -179,6 +179,17 @@ export const Settings: React.FC<SettingsProps> = ({ currentUserId }) => {
     }
   };
 
+  const toggleUserInactive = async (user: User) => {
+    if (currentUserId && user.id === currentUserId) {
+      alert("无法停用当前账号");
+      return;
+    }
+    const inactiveNames = new Set(config.inactiveMemberNames || []);
+    if (inactiveNames.has(user.name)) inactiveNames.delete(user.name);
+    else inactiveNames.add(user.name);
+    await saveConfigChange({ ...config, inactiveMemberNames: Array.from(inactiveNames) });
+  };
+
   const saveTemplate = async () => {
     if (!editingTemplate || !editingTemplate.name || !editingTemplate.content) { alert("请填写模板信息"); return; }
     let updatedTemplates = [...config.reportTemplates];
@@ -240,9 +251,16 @@ export const Settings: React.FC<SettingsProps> = ({ currentUserId }) => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {config.users.map(user => (
-                    <tr key={user.id} className="hover:bg-slate-50 transition-colors group">
-                      <td className="px-8 py-5 font-bold text-slate-700 truncate">{user.name}</td>
+                  {config.users.map(user => {
+                    const isInactive = (config.inactiveMemberNames || []).includes(user.name);
+                    return (
+                    <tr key={user.id} className={`hover:bg-slate-50 transition-colors group ${isInactive ? 'opacity-60' : ''}`}>
+                      <td className="px-8 py-5 font-bold text-slate-700 truncate">
+                        <div className="flex items-center gap-2">
+                          <span>{user.name}</span>
+                          {isInactive && <span className="px-2 py-0.5 rounded-full bg-slate-200 text-slate-600 text-[9px] font-black">已离职</span>}
+                        </div>
+                      </td>
                       <td className="px-8 py-5 font-mono text-sm text-slate-500 truncate">{user.username}</td>
                       <td className="px-8 py-5">
                         <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${user.role === 'manager' ? 'bg-amber-50 text-amber-700 border border-amber-100' : 'bg-slate-100 text-slate-600'}`}>
@@ -252,12 +270,16 @@ export const Settings: React.FC<SettingsProps> = ({ currentUserId }) => {
                       </td>
                       <td className="px-8 py-5 text-center">
                         <div className="flex items-center justify-center gap-2">
+                          <button onClick={() => toggleUserInactive(user)} disabled={!!currentUserId && user.id === currentUserId} className={`px-2.5 py-2 rounded-lg shadow-sm border text-[10px] font-black ${isInactive ? 'text-emerald-600 border-emerald-100 hover:bg-emerald-50' : 'text-amber-600 border-amber-100 hover:bg-amber-50'} disabled:text-slate-300 disabled:border-slate-100`}>
+                            {isInactive ? '恢复' : '离职'}
+                          </button>
                           <button onClick={() => { setEditingUser({ ...user, password: '' }); setIsUserModalOpen(true); }} className="p-2 text-indigo-600 hover:bg-white rounded-lg shadow-sm border border-slate-100"> <Edit2 size={14} /> </button>
                           <button onClick={() => { if (currentUserId && user.id === currentUserId) { alert("无法删除当前账号"); return; } setDeleteUserConfirmId(user.id); }} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-white rounded-lg shadow-sm border border-slate-100"> <Trash2 size={14} /> </button>
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

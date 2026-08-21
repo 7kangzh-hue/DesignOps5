@@ -110,6 +110,7 @@ export interface AppConfig {
   stages: TagConfig[]; 
   projectColumnOrder: string[];
   reportTemplates: ReportTemplate[];
+  inactiveMemberNames: string[];
   users: User[]; 
 }
 
@@ -202,6 +203,7 @@ export const DEFAULT_CONFIG: AppConfig = {
 [语气要求]: 专业、干练、管理视角。`
     }
   ],
+  inactiveMemberNames: ['牛兆龙'],
   users: [] 
 };
 

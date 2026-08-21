@@ -12,6 +12,37 @@ import { subWeeks } from 'date-fns/subWeeks';
 import { EmptyState } from './EmptyState';
 import { parseMarkdownToErpJsonString } from '../src/utils/reportParser';
 
+const copyTextToClipboard = async (text: string): Promise<void> => {
+  if (window.isSecureContext && navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return;
+    } catch (error) {
+      console.warn('现代剪贴板 API 不可用，尝试兼容复制:', error);
+    }
+  }
+
+  const textarea = document.createElement('textarea');
+  const activeElement = document.activeElement as HTMLElement | null;
+  textarea.value = text;
+  textarea.setAttribute('readonly', '');
+  textarea.style.position = 'fixed';
+  textarea.style.left = '-9999px';
+  textarea.style.opacity = '0';
+  document.body.appendChild(textarea);
+  textarea.select();
+  textarea.setSelectionRange(0, text.length);
+
+  try {
+    if (!document.execCommand('copy')) {
+      throw new Error('浏览器拒绝复制到剪贴板');
+    }
+  } finally {
+    document.body.removeChild(textarea);
+    activeElement?.focus();
+  }
+};
+
 // 解析行内 markdown 格式（粗体、代码等）
 const parseInlineMarkdown = (text: string): React.ReactNode[] => {
   if (!text) return [];
@@ -261,10 +292,15 @@ export const SmartReport: React.FC = () => {
     }
   };
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(reportContent);
-    setCopySuccess(true);
-    setTimeout(() => setCopySuccess(false), 2000);
+  const handleCopy = async () => {
+    try {
+      await copyTextToClipboard(reportContent);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    } catch (error) {
+      console.error('复制周报失败:', error);
+      alert('复制失败，请检查浏览器剪贴板权限');
+    }
   };
 
   const handleDeleteReport = async (id: string) => {
@@ -343,41 +379,47 @@ export const SmartReport: React.FC = () => {
     }
   };
 
-  const handleExportToErp = () => {
+  const handleExportToErp = async () => {
     if (!reportContent) return;
-    
+
+    let erpJson: string;
     try {
-      // 解析 Markdown 为 ERP JSON
-      const erpJson = parseMarkdownToErpJsonString(reportContent);
-      
-      // 复制到剪贴板
-      navigator.clipboard.writeText(erpJson);
-      
-      // 显示成功状态
+      erpJson = parseMarkdownToErpJsonString(reportContent);
+    } catch (error) {
+      console.error('ERP 格式解析失败:', error);
+      alert('ERP 解析失败，请检查周报格式');
+      return;
+    }
+
+    try {
+      await copyTextToClipboard(erpJson);
       setErpCopySuccess(true);
       setTimeout(() => setErpCopySuccess(false), 2000);
     } catch (error) {
-      console.error('ERP 导出失败:', error);
-      alert('ERP 导出失败，请检查周报格式');
+      console.error('ERP 代码复制失败:', error);
+      alert('ERP 代码已生成，但复制失败，请检查浏览器剪贴板权限');
     }
   };
 
-  const handleExportHistoryToErp = () => {
+  const handleExportHistoryToErp = async () => {
     if (!viewingReport?.content) return;
-    
+
+    let erpJson: string;
     try {
-      // 解析历史记录的 Markdown 为 ERP JSON
-      const erpJson = parseMarkdownToErpJsonString(viewingReport.content);
-      
-      // 复制到剪贴板
-      navigator.clipboard.writeText(erpJson);
-      
-      // 显示成功状态
+      erpJson = parseMarkdownToErpJsonString(viewingReport.content);
+    } catch (error) {
+      console.error('历史周报 ERP 格式解析失败:', error);
+      alert('ERP 解析失败，请检查周报格式');
+      return;
+    }
+
+    try {
+      await copyTextToClipboard(erpJson);
       setHistoryErpCopySuccess(true);
       setTimeout(() => setHistoryErpCopySuccess(false), 2000);
     } catch (error) {
-      console.error('历史记录 ERP 导出失败:', error);
-      alert('ERP 导出失败，请检查周报格式');
+      console.error('历史周报 ERP 代码复制失败:', error);
+      alert('ERP 代码已生成，但复制失败，请检查浏览器剪贴板权限');
     }
   };
 
@@ -704,10 +746,15 @@ export const SmartReport: React.FC = () => {
                             {historyErpCopySuccess ? '已复制' : 'ERP 代码'}
                           </button>
                           <button 
-                            onClick={() => {
-                              navigator.clipboard.writeText(viewingReport.content);
-                              setCopySuccess(true);
-                              setTimeout(() => setCopySuccess(false), 2000);
+                            onClick={async () => {
+                              try {
+                                await copyTextToClipboard(viewingReport.content);
+                                setCopySuccess(true);
+                                setTimeout(() => setCopySuccess(false), 2000);
+                              } catch (error) {
+                                console.error('复制历史周报失败:', error);
+                                alert('复制失败，请检查浏览器剪贴板权限');
+                              }
                             }}
                             className="flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all active:scale-95"
                           >
